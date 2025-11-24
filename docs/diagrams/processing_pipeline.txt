@@ -1,0 +1,93 @@
+
+================================================================================
+                 SATELLITE IMAGE PROCESSING PIPELINE
+                    for Super Resolution Training
+================================================================================
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. GOOGLE EARTH ENGINE DATA SOURCE                                      │
+│    - Planet Labs: 3m resolution (HR)                                    │
+│    - Sentinel-2: 10m resolution (LR)                                    │
+│    Collections: STA-2 regions (2020-2025)                               │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2. TEMPORAL MATCHING & CHUNKED DOWNLOAD                                 │
+│    - Match Planet ↔ Sentinel-2 pairs (±7 days tolerance)               │
+│    - Chunked parallel download: 9×9 grid, 12 workers                   │
+│    - Planet: ~3800×5000 px (~223s per frame)                           │
+│    - Sentinel-2: ~1150×1530 px (~23s per frame)                        │
+│    Output: HR (H, W, 4) | LR (H/3.33, W/3.33, 4)                       │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3. SPATIAL COREGISTRATION (AROSICS)                                     │
+│    - Align Planet HR to Sentinel-2 LR (sub-pixel accuracy)             │
+│    - LR = fixed reference, HR = shifted to match                        │
+│    - Window size: 128×128 pixels                                        │
+│    - Real geographic coordinates for spatial context                    │
+│    - Success rate: 100% (tested on 100 samples)                         │
+│    - Processing: ~11s per frame                                         │
+│    Cache: ./cache/coregistered/*.npy                                    │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 4. SPECTRAL HARMONIZATION ★ NEW                                         │
+│    - Match Planet spectral response → Sentinel-2 distribution           │
+│    - Method: Histogram matching (CDF-based per-band adjustment)         │
+│    - Scene-adaptive, self-calibrating from reference data               │
+│    - Spectral difference reduction: 502.6 → 0.3 (99.9% improvement)    │
+│    - Processing: ~2.6s per frame                                        │
+│    Cache: ./cache/harmonized/*.npy                                      │
+│    Lines: 737-748 in numpy_efficient_pipeline.py                        │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 5. BAND COUNT HARMONIZATION                                             │
+│    - Ensure HR and LR have matching number of bands                     │
+│    - Handle 4-band vs 8-band Planet images                              │
+│    - Truncate to minimum common bands                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 6. SPATIAL TILING (3.33:1 RATIO)                                        │
+│    - HR tiles: 256×256 pixels                                           │
+│    - LR tiles: 77×77 pixels (auto-calculated from actual ratio)         │
+│    - Non-overlapping grid for geographic correspondence                 │
+│    - Edge padding for boundary tiles                                    │
+│    - Multiple tiles per sequence → data augmentation                    │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 7. TRAINING SAMPLE OUTPUT                                               │
+│    TrainingSample(                                                       │
+│        lr_sequence: (T=3, 77, 77, 4)                                    │
+│        hr_sequence: (T=3, 256, 256, 4)                                  │
+│        temporal_dates: [date1, date2, date3]                            │
+│        region_name, sequence_id, tile_id, tile_bounds                   │
+│    )                                                                     │
+│    Ready for SR model training                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+
+KEY FEATURES:
+  ✓ Spectral harmonization (NEW) - 99.9% improvement in spectral consistency
+  ✓ 100% coregistration success rate using AROSICS
+  ✓ 3.33:1 geographic ratio (auto-calculated from actual dimensions)
+  ✓ Smart caching system (coregistered + harmonized)
+  ✓ Parallel chunked downloads for large images
+  ✓ Temporal sequences for attention-based SR
+
+PERFORMANCE:
+  - Band detection: ~385s for 12 dates (batch operation)
+  - Download per frame: Planet 223s, Sentinel-2 23s
+  - Coregistration: ~11s per frame
+  - Harmonization: ~2.6s per frame
+  - Total per sample: ~30-60 minutes for 20 samples
+
+================================================================================

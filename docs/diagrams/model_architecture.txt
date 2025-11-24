@@ -1,0 +1,126 @@
+
+================================================================================
+              TEMPORAL SUPER RESOLUTION MODEL ARCHITECTURE
+                 Attention-Based Temporal Feature Fusion
+================================================================================
+
+                        ┌─────────────────────────┐
+                        │  INPUT LR SEQUENCE      │
+                        │  Shape: (T=3, 77, 77, 4)│
+                        └───────────┬─────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+            ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+            │ FRAME 1      │ │ FRAME 2      │ │ FRAME 3      │
+            │ EXTRACTION   │ │ EXTRACTION   │ │ EXTRACTION   │
+            ├──────────────┤ ├──────────────┤ ├──────────────┤
+            │ Conv2D 3×3   │ │ Conv2D 3×3   │ │ Conv2D 3×3   │
+            │ + ReLU       │ │ + ReLU       │ │ + ReLU       │
+            │ 128 channels │ │ 128 channels │ │ 128 channels │
+            ├──────────────┤ ├──────────────┤ ├──────────────┤
+            │ 16 ResBlocks │ │ 16 ResBlocks │ │ 16 ResBlocks │
+            │ Each:        │ │ Each:        │ │ Each:        │
+            │  Conv-ReLU   │ │  Conv-ReLU   │ │  Conv-ReLU   │
+            │  Conv        │ │  Conv        │ │  Conv        │
+            │  + Skip      │ │  + Skip      │ │  + Skip      │
+            └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+                   │                │                │
+                   └────────────────┼────────────────┘
+                                    │
+                                    ▼
+            ╔═══════════════════════════════════════════════╗
+            ║   TEMPORAL ATTENTION MECHANISM                ║
+            ║                                               ║
+            ║   Multi-Head Self-Attention (4 heads)        ║
+            ║   ┌───────────────────────────────────┐      ║
+            ║   │ Query  ← Conv(features_t)         │      ║
+            ║   │ Key    ← Conv(features_t)         │      ║
+            ║   │ Value  ← Conv(features_t)         │      ║
+            ║   └───────────────────────────────────┘      ║
+            ║                                               ║
+            ║   Attention(Q,K,V) = softmax(QK^T/√d)V       ║
+            ║                                               ║
+            ║   Weighted feature fusion across time        ║
+            ║   Learn temporal dependencies                ║
+            ╚═══════════════════════════════════════════════╝
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  FEATURE FUSION       │
+                        │  Conv 1×1 + ReLU      │
+                        │  128 channels         │
+                        └───────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  UPSCALING STAGE 1    │
+                        │  PixelShuffle 2×      │
+                        │  154×154              │
+                        └───────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  Conv + ReLU          │
+                        │  128 channels         │
+                        └───────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  UPSCALING STAGE 2    │
+                        │  PixelShuffle 2×      │
+                        │  (4× total upscale)   │
+                        └───────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  Conv + ReLU          │
+                        │  64 channels          │
+                        └───────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  OUTPUT CONV          │
+                        │  Conv 3×3             │
+                        │  4 channels           │
+                        └───────────┬───────────┘
+                                    │
+                                    ▼
+                        ┌───────────────────────┐
+                        │  HR OUTPUT            │
+                        │  (256, 256, 4)        │
+                        └───────────────────────┘
+
+MODEL SPECIFICATIONS:
+├─ Architecture: ResNet + Temporal Attention
+├─ Residual Blocks: 16
+├─ Base Channels: 128
+├─ Attention Heads: 4
+├─ Scale Factor: 3.33× (77 → 256)
+├─ Temporal Frames: 3
+├─ Parameters: ~8.5M
+└─ Input: (3, 77, 77, 4) → Output: (256, 256, 4)
+
+TRAINING CONFIGURATION:
+├─ Loss Function: L1 + SSIM (α=0.84)
+├─ Optimizer: Adam
+├─ Learning Rate: 1e-4
+├─ Batch Size: 4
+├─ Epochs: 200
+├─ Dataset: STA-2 harmonized (~1,440 samples)
+└─ Augmentation: Temporal-consistent spatial transforms
+
+TARGET METRICS:
+├─ PSNR: >25 dB (currently ~15 dB baseline)
+├─ SSIM: >0.70 (currently ~0.17 baseline)
+└─ Expected improvement: +10 dB PSNR, +0.53 SSIM
+
+KEY INNOVATIONS:
+✓ Temporal attention for multi-frame fusion
+✓ ResNet backbone for deep feature extraction
+✓ PixelShuffle for efficient upsampling
+✓ Harmonized spectral input (Planet → Sentinel-2)
+✓ Geographic correspondence in tiling (3.33:1)
+
+================================================================================

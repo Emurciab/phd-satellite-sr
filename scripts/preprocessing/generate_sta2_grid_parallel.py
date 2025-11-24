@@ -555,86 +555,115 @@ def main():
             s2_images.append(s2_img)
             print(f"   Frame {frame_idx + 1}: Planet {pair['planet_id']}, S2 {pair['s2_id']}")
         
-        # Check coverage for ALL frames to find intersection
-        # IMPORTANT: A tile is only valid if ALL frames have sufficient coverage
-        print(f"\n🔍 Checking coverage across ALL {len(sequence)} frames...")
+        # Check if we have cached coverage results for this sequence
+        # This saves ~600 GEE API calls per sequence (200 tiles × 3 frames × 2 images/frame)
+        sequence_dates = tuple(sorted([p['s2_date'] for p in sequence]))
+        # Use stable hash based on concatenated dates
+        import hashlib
+        dates_str = "_".join(sequence_dates)
+        cache_hash = hashlib.md5(dates_str.encode()).hexdigest()[:16]
+        coverage_cache_file = cache_dir / f"coverage_{cache_hash}.pkl"
         
-        # First, check overall coverage for each frame
-        for frame_idx, (planet_img, pair) in enumerate(zip(planet_images, sequence)):
-            test_geom = region_config["aoi"]
-            try:
-                valid_mask = planet_img.select('B1').mask()
-                stats = valid_mask.reduceRegion(
-                    reducer=ee.Reducer.mean(),
-                    geometry=test_geom,
-                    scale=100,  # Coarse for speed
-                    maxPixels=1e6,
-                    bestEffort=True
-                )
-                coverage = stats.get('B1').getInfo() or 0
-                print(f"   Frame {frame_idx + 1} ({pair['s2_date']}): {coverage*100:.1f}% overall coverage")
-            except:
-                print(f"   Frame {frame_idx + 1} ({pair['s2_date']}): Coverage check failed")
-        
-        # Generate grid tiles
-        print(f"\n🗺️  Generating tile grid...")
-        all_tiles = generate_tile_grid(region_config["aoi"], tile_size_deg=0.007, max_tiles=200)
-        
-        # Filter tiles to keep only those with coverage in ALL frames (intersection)
-        print(f"\n🔍 Filtering tiles with coverage in ALL {len(sequence)} frames (intersection)...")
-        print(f"   This ensures temporal consistency - all frames have data at each tile")
-        
-        valid_tiles = []
-        checked = 0
-        
-        with ThreadPoolExecutor(max_workers=args.coverage_workers) as executor:
-            # For each tile, check if ALL frames have sufficient coverage
-            def check_tile_all_frames(tile_bounds):
-                tile_geom = ee.Geometry.Rectangle(tile_bounds)
-                
-                # Check coverage on ALL frames
-                for planet_img, s2_img in zip(planet_images, s2_images):
-                    # Check Planet
-                    planet_valid = has_sufficient_coverage(
-                        planet_img, tile_geom, 'B1',
-                        min_percent=args.coverage_threshold, scale=30
-                    )
-                    if not planet_valid:
-                        return False  # Reject tile if any frame has insufficient coverage
-                    
-                    # Check Sentinel-2
-                    s2_valid = has_sufficient_coverage(
-                        s2_img, tile_geom, 'B2',
-                        min_percent=args.coverage_threshold, scale=30
-                    )
-                    if not s2_valid:
-                        return False
-                
-                # All frames have sufficient coverage
-                return True
+        if coverage_cache_file.exists():
+            print(f"\n   ✅ Found cached coverage results!")
+            with open(coverage_cache_file, 'rb') as f:
+                cached_data = pickle.load(f)
+                valid_tiles = cached_data['valid_tiles']
+                total_checked = cached_data.get('total_checked', len(valid_tiles))
+            print(f"   ⚡ Loaded {len(valid_tiles)}/{total_checked} valid tiles from cache")
+            print(f"   ⚡ Saved ~{total_checked * len(sequence) * 2} GEE API calls!")
+        else:
+            # Check coverage for ALL frames to find intersection
+            # IMPORTANT: A tile is only valid if ALL frames have sufficient coverage
+            print(f"\n🔍 Checking coverage across ALL {len(sequence)} frames...")
             
-            # Submit all tasks
-            future_to_tile = {
-                executor.submit(check_tile_all_frames, tile_bounds): tile_bounds
-                for tile_bounds in all_tiles
-            }
-            
-            # Collect results
-            for future in as_completed(future_to_tile):
-                tile_bounds = future_to_tile[future]
-                checked += 1
-                
+            # First, check overall coverage for each frame
+            for frame_idx, (planet_img, pair) in enumerate(zip(planet_images, sequence)):
+                test_geom = region_config["aoi"]
                 try:
-                    is_valid = future.result()
-                    if is_valid:
-                        valid_tiles.append(tile_bounds)
+                    valid_mask = planet_img.select('B1').mask()
+                    stats = valid_mask.reduceRegion(
+                        reducer=ee.Reducer.mean(),
+                        geometry=test_geom,
+                        scale=100,  # Coarse for speed
+                        maxPixels=1e6,
+                        bestEffort=True
+                    )
+                    coverage = stats.get('B1').getInfo() or 0
+                    print(f"   Frame {frame_idx + 1} ({pair['s2_date']}): {coverage*100:.1f}% overall coverage")
+                except:
+                    print(f"   Frame {frame_idx + 1} ({pair['s2_date']}): Coverage check failed")
+            
+            # Generate grid tiles
+            print(f"\n🗺️  Generating tile grid...")
+            all_tiles = generate_tile_grid(region_config["aoi"], tile_size_deg=0.007, max_tiles=200)
+            
+            # Filter tiles to keep only those with coverage in ALL frames (intersection)
+            print(f"\n🔍 Filtering tiles with coverage in ALL {len(sequence)} frames (intersection)...")
+            print(f"   This ensures temporal consistency - all frames have data at each tile")
+            
+            valid_tiles = []
+            checked = 0
+            
+            with ThreadPoolExecutor(max_workers=args.coverage_workers) as executor:
+                # For each tile, check if ALL frames have sufficient coverage
+                def check_tile_all_frames(tile_bounds):
+                    tile_geom = ee.Geometry.Rectangle(tile_bounds)
                     
-                    if checked % 20 == 0 or checked == len(all_tiles):
-                        print(f"   Progress: {checked}/{len(all_tiles)} checked, {len(valid_tiles)} valid ({100*len(valid_tiles)/checked:.1f}%)")
-                except Exception as e:
-                    pass
-        
-        print(f"   ✓ Valid tiles (ALL frames): {len(valid_tiles)}/{len(all_tiles)} ({100*len(valid_tiles)/len(all_tiles):.1f}%)")
+                    # Check coverage on ALL frames
+                    for planet_img, s2_img in zip(planet_images, s2_images):
+                        # Check Planet
+                        planet_valid = has_sufficient_coverage(
+                            planet_img, tile_geom, 'B1',
+                            min_percent=args.coverage_threshold, scale=30
+                        )
+                        if not planet_valid:
+                            return False  # Reject tile if any frame has insufficient coverage
+                        
+                        # Check Sentinel-2
+                        s2_valid = has_sufficient_coverage(
+                            s2_img, tile_geom, 'B2',
+                            min_percent=args.coverage_threshold, scale=30
+                        )
+                        if not s2_valid:
+                            return False
+                    
+                    # All frames have sufficient coverage
+                    return True
+                
+                # Submit all tasks
+                future_to_tile = {
+                    executor.submit(check_tile_all_frames, tile_bounds): tile_bounds
+                    for tile_bounds in all_tiles
+                }
+                
+                # Collect results
+                for future in as_completed(future_to_tile):
+                    tile_bounds = future_to_tile[future]
+                    checked += 1
+                    
+                    try:
+                        is_valid = future.result()
+                        if is_valid:
+                            valid_tiles.append(tile_bounds)
+                        
+                        if checked % 20 == 0 or checked == len(all_tiles):
+                            print(f"   Progress: {checked}/{len(all_tiles)} checked, {len(valid_tiles)} valid ({100*len(valid_tiles)/checked:.1f}%)")
+                    except Exception as e:
+                        pass
+            
+            print(f"   ✓ Valid tiles (ALL frames): {len(valid_tiles)}/{len(all_tiles)} ({100*len(valid_tiles)/len(all_tiles):.1f}%)")
+            
+            # Save coverage results to cache for future runs
+            cache_data = {
+                'valid_tiles': valid_tiles,
+                'total_checked': len(all_tiles),
+                'sequence_dates': sequence_dates,
+                'coverage_threshold': args.coverage_threshold
+            }
+            with open(coverage_cache_file, 'wb') as f:
+                pickle.dump(cache_data, f)
+            print(f"   ✅ Cache saved: {coverage_cache_file.name}")
         
         if len(valid_tiles) == 0:
             print(f"   ⚠️ No valid tiles found for this sequence, skipping")

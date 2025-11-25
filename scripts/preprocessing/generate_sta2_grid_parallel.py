@@ -305,10 +305,126 @@ def harmonize_planet_to_sentinel2_wrapper(hr_array, lr_array, cache_path):
         return hr_array
 
 
+def process_tile(tile_info):
+    """
+    Process a single tile across all temporal frames.
+    This is the worker function for parallel tile processing.
+    
+    Args:
+        tile_info: Dict containing:
+            - tile_idx: Tile index
+            - tile_bounds: Geographic bounds [minLon, minLat, maxLon, maxLat]
+            - sequence: List of matched pairs
+            - planet_collection: Planet image collection
+            - s2_collection: Sentinel-2 image collection
+            - planet_bands: List of Planet band names
+            - sentinel_bands: List of Sentinel-2 band names
+            - cache_dir: Cache directory path
+            - region_name: Region name
+            - seq_idx: Sequence index
+    
+    Returns:
+        TrainingSample object or None if processing failed
+    """
+    tile_idx = tile_info['tile_idx']
+    tile_bounds = tile_info['tile_bounds']
+    sequence = tile_info['sequence']
+    planet_collection = tile_info['planet_collection']
+    s2_collection = tile_info['s2_collection']
+    planet_bands = tile_info['planet_bands']
+    sentinel_bands = tile_info['sentinel_bands']
+    cache_dir = tile_info['cache_dir']
+    region_name = tile_info['region_name']
+    seq_idx = tile_info['seq_idx']
+    
+    lr_frames = []
+    hr_frames = []
+    dates = []
+    
+    # Download all frames for this tile
+    all_frames_ok = True
+    for frame_idx, pair in enumerate(sequence):
+        try:
+            # Get images from collections
+            planet_img = planet_collection.filter(ee.Filter.eq("id_pref", pair["planet_id"])).first()
+            s2_img = s2_collection.filter(ee.Filter.eq("id_pref", pair["s2_id"])).first()
+            
+            # Download just this tile region
+            hr_array, lr_array = download_tile_region(
+                planet_img, s2_img, tile_bounds,
+                planet_bands, sentinel_bands
+            )
+            
+            if hr_array is None or lr_array is None:
+                all_frames_ok = False
+                break
+            
+            # Apply coregistration and harmonization
+            cache_path_coreg = cache_dir / "coregistered" / f"seq{seq_idx}_tile{tile_idx}_frame{frame_idx}.npy"
+            cache_path_harm = cache_dir / "harmonized" / f"seq{seq_idx}_tile{tile_idx}_frame{frame_idx}.npy"
+            
+            # Convert tile_bounds [minLon, minLat, maxLon, maxLat] to aoi_bounds format
+            # AROSICS expects list of [lon, lat] coordinate pairs
+            aoi_bounds_coords = [
+                [tile_bounds[0], tile_bounds[1]],  # bottom-left
+                [tile_bounds[2], tile_bounds[1]],  # bottom-right
+                [tile_bounds[2], tile_bounds[3]],  # top-right
+                [tile_bounds[0], tile_bounds[3]]   # top-left
+            ]
+            
+            # Coregistration with REAL geographic coordinates
+            hr_array = coregister_lr_to_hr_wrapper(
+                hr_array=hr_array,
+                lr_array=lr_array,
+                aoi_bounds=aoi_bounds_coords,
+                cache_path=cache_path_coreg
+            )
+            
+            # Harmonization
+            hr_array = harmonize_planet_to_sentinel2_wrapper(
+                hr_array=hr_array,
+                lr_array=lr_array,
+                cache_path=cache_path_harm
+            )
+            
+            # Ensure matching bands
+            if lr_array.shape[-1] != hr_array.shape[-1]:
+                min_bands = min(lr_array.shape[-1], hr_array.shape[-1])
+                lr_array = lr_array[:, :, :min_bands]
+                hr_array = hr_array[:, :, :min_bands]
+            
+            lr_frames.append(lr_array)
+            hr_frames.append(hr_array)
+            dates.append((pair['s2_date'], pair['planet_date']))
+            
+        except Exception as e:
+            all_frames_ok = False
+            break
+    
+    # Create sample if all frames downloaded
+    if all_frames_ok and len(lr_frames) == len(sequence):
+        # Separate S2 and Planet dates
+        s2_dates = [d[0] for d in dates]
+        planet_dates = [d[1] for d in dates]
+        
+        sample = TrainingSample(
+            lr_sequence=np.stack(lr_frames, axis=0),
+            hr_sequence=np.stack(hr_frames, axis=0),
+            temporal_dates=s2_dates,
+            planet_dates=planet_dates,
+            region_name=region_name,
+            sequence_id=seq_idx,
+            tile_id=tile_idx,
+            tile_bounds={'bounds': tile_bounds}
+        )
+        return sample
+    else:
+        return None
+
+
 def process_single_sequence(sequence_info):
     """
-    Process a single sequence with multiple tiles.
-    This function can be run in parallel.
+    Process a single sequence with multiple tiles in parallel.
     
     Args:
         sequence_info: Dict with sequence data and configuration
@@ -326,90 +442,70 @@ def process_single_sequence(sequence_info):
     region_name = sequence_info['region_name']
     seq_idx = sequence_info['seq_idx']
     max_samples_per_seq = sequence_info['max_samples_per_seq']
+    tile_workers = sequence_info.get('tile_workers', 1)
     
     samples = []
     
     print(f"\n📦 Processing sequence {seq_idx} with {len(valid_tiles)} valid tiles...")
+    print(f"   Using {tile_workers} parallel worker(s) for tile processing")
     
-    for tile_idx, tile_bounds in enumerate(valid_tiles[:max_samples_per_seq]):
-        print(f"   Tile {tile_idx+1}/{min(len(valid_tiles), max_samples_per_seq)}...", end=" ", flush=True)
-        
-        lr_frames = []
-        hr_frames = []
-        dates = []
-        
-        # Download all frames for this tile
-        all_frames_ok = True
-        for frame_idx, pair in enumerate(sequence):
-            try:
-                # Get images from collections
-                planet_img = planet_collection.filter(ee.Filter.eq("id_pref", pair["planet_id"])).first()
-                s2_img = s2_collection.filter(ee.Filter.eq("id_pref", pair["s2_id"])).first()
-                
-                # Download just this tile region
-                hr_array, lr_array = download_tile_region(
-                    planet_img, s2_img, tile_bounds,
-                    planet_bands, sentinel_bands
-                )
-                
-                if hr_array is None or lr_array is None:
-                    all_frames_ok = False
-                    break
-                
-                # Apply coregistration and harmonization
-                cache_path_coreg = cache_dir / "coregistered" / f"seq{seq_idx}_tile{tile_idx}_frame{frame_idx}.npy"
-                cache_path_harm = cache_dir / "harmonized" / f"seq{seq_idx}_tile{tile_idx}_frame{frame_idx}.npy"
-                
-                # Coregistration
-                hr_array = coregister_lr_to_hr_wrapper(
-                    hr_array=hr_array,
-                    lr_array=lr_array,
-                    aoi_bounds=None,
-                    cache_path=cache_path_coreg
-                )
-                
-                # Harmonization
-                hr_array = harmonize_planet_to_sentinel2_wrapper(
-                    hr_array=hr_array,
-                    lr_array=lr_array,
-                    cache_path=cache_path_harm
-                )
-                
-                # Ensure matching bands
-                if lr_array.shape[-1] != hr_array.shape[-1]:
-                    min_bands = min(lr_array.shape[-1], hr_array.shape[-1])
-                    lr_array = lr_array[:, :, :min_bands]
-                    hr_array = hr_array[:, :, :min_bands]
-                
-                lr_frames.append(lr_array)
-                hr_frames.append(hr_array)
-                dates.append((pair['s2_date'], pair['planet_date']))
-                
-            except Exception as e:
-                print(f"Error frame {frame_idx}: {e}", end=" ")
-                all_frames_ok = False
-                break
-        
-        # Create sample if all frames downloaded
-        if all_frames_ok and len(lr_frames) == len(sequence):
-            # Separate S2 and Planet dates
-            s2_dates = [d[0] for d in dates]
-            planet_dates = [d[1] for d in dates]
+    # Prepare tile info for parallel processing
+    tiles_to_process = valid_tiles[:max_samples_per_seq]
+    tile_infos = []
+    
+    for tile_idx, tile_bounds in enumerate(tiles_to_process):
+        tile_info = {
+            'tile_idx': tile_idx,
+            'tile_bounds': tile_bounds,
+            'sequence': sequence,
+            'planet_collection': planet_collection,
+            's2_collection': s2_collection,
+            'planet_bands': planet_bands,
+            'sentinel_bands': sentinel_bands,
+            'cache_dir': cache_dir,
+            'region_name': region_name,
+            'seq_idx': seq_idx
+        }
+        tile_infos.append(tile_info)
+    
+    # Process tiles in parallel
+    if tile_workers > 1:
+        # Parallel processing
+        with ProcessPoolExecutor(max_workers=tile_workers) as executor:
+            # Submit all tile processing tasks
+            future_to_tile = {
+                executor.submit(process_tile, tile_info): (tile_info['tile_idx'], tile_info['tile_bounds'])
+                for tile_info in tile_infos
+            }
             
-            sample = TrainingSample(
-                lr_sequence=np.stack(lr_frames, axis=0),
-                hr_sequence=np.stack(hr_frames, axis=0),
-                temporal_dates=s2_dates,
-                planet_dates=planet_dates,
-                region_name=region_name,
-                sequence_id=seq_idx,
-                tile_id=tile_idx,
-                tile_bounds={'bounds': tile_bounds}
-            )
-            samples.append(sample)
-            print("✓")
-        else:
-            print("✗")
+            # Collect results as they complete
+            processed = 0
+            for future in as_completed(future_to_tile):
+                tile_idx, tile_bounds = future_to_tile[future]
+                processed += 1
+                
+                try:
+                    sample = future.result()
+                    if sample is not None:
+                        samples.append(sample)
+                        print(f"   Tile {tile_idx+1}/{len(tiles_to_process)}: ✓ ({processed}/{len(tiles_to_process)} done)")
+                    else:
+                        print(f"   Tile {tile_idx+1}/{len(tiles_to_process)}: ✗ ({processed}/{len(tiles_to_process)} done)")
+                except Exception as e:
+                    print(f"   Tile {tile_idx+1}/{len(tiles_to_process)}: ✗ Error: {e} ({processed}/{len(tiles_to_process)} done)")
+    else:
+        # Sequential processing (for debugging or when tile_workers=1)
+        for tile_idx, tile_info in enumerate(tile_infos):
+            print(f"   Tile {tile_idx+1}/{len(tiles_to_process)}...", end=" ", flush=True)
+            try:
+                sample = process_tile(tile_info)
+                if sample is not None:
+                    samples.append(sample)
+                    print("✓")
+                else:
+                    print("✗")
+            except Exception as e:
+                print(f"✗ Error: {e}")
     
     print(f"   Sequence {seq_idx}: Generated {len(samples)} samples")
     return samples
@@ -429,8 +525,8 @@ def main():
                        help='Temporal sequence length')
     parser.add_argument('--coverage-threshold', type=float, default=90.0,
                        help='Minimum coverage percentage for valid tiles')
-    parser.add_argument('--parallel-sequences', type=int, default=1,
-                       help='Number of sequences to process in parallel (1=sequential)')
+    parser.add_argument('--tile-workers', type=int, default=1,
+                       help='Number of parallel workers for tile processing within each sequence')
     parser.add_argument('--coverage-workers', type=int, default=8,
                        help='Number of parallel workers for coverage checking')
     
@@ -443,7 +539,7 @@ def main():
     print("─" * 80)
     print(f"  Strategy:               Grid-based systematic tile sampling")
     print(f"  Coverage pre-check:     {args.coverage_threshold}% minimum (across all frames)")
-    print(f"  Parallel sequences:     {args.parallel_sequences} sequence(s)")
+    print(f"  Tile workers:           {args.tile_workers} parallel worker(s) per sequence")
     print(f"  Coverage workers:       {args.coverage_workers} parallel workers")
     print(f"  Direct tile download:   YES (no full image waste)")
     print(f"  Coregistration:         AROSICS + Phase correlation fallback")
@@ -686,7 +782,8 @@ def main():
             'cache_dir': cache_dir,
             'region_name': region_config['name'],
             'seq_idx': seq_idx,
-            'max_samples_per_seq': max_samples_this_seq
+            'max_samples_per_seq': max_samples_this_seq,
+            'tile_workers': args.tile_workers
         }
         
         # Process this sequence

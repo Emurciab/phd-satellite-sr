@@ -36,6 +36,9 @@ class TrainingSample:
     sequence_id: int
     tile_id: int
     tile_bounds: Dict
+    # Solar zenith angles for each frame (optimal ~45° for aquatic vegetation)
+    s2_solar_zenith: Optional[List[float]] = None   # Sentinel-2 MEAN_SOLAR_ZENITH_ANGLE per frame
+    planet_solar_zenith: Optional[List[float]] = None  # PlanetScope zenith (90 - sun_elevation) per frame
 
 
 def download_tile_region(planet_img, s2_img, tile_bounds, planet_bands, sentinel_bands,
@@ -305,6 +308,55 @@ def harmonize_planet_to_sentinel2_wrapper(hr_array, lr_array, cache_path):
         return hr_array
 
 
+def get_solar_zenith_angles(planet_img: ee.Image, s2_img: ee.Image) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Extract solar zenith angles from Sentinel-2 and PlanetScope images.
+    
+    Solar zenith angle is important for aquatic vegetation analysis:
+    - Optimal angle ~45° minimizes sun glint and maximizes water-leaving radiance
+    - Can be used to penalize samples with extreme angles during training
+    
+    Args:
+        planet_img: ee.Image for PlanetScope
+        s2_img: ee.Image for Sentinel-2
+    
+    Returns:
+        Tuple of (s2_zenith, planet_zenith) in degrees, or None if unavailable
+    """
+    s2_zenith = None
+    planet_zenith = None
+    
+    try:
+        # Sentinel-2: MEAN_SOLAR_ZENITH_ANGLE is directly available
+        s2_zenith = s2_img.get('MEAN_SOLAR_ZENITH_ANGLE').getInfo()
+        if s2_zenith is not None:
+            s2_zenith = float(s2_zenith)
+    except Exception as e:
+        pass
+    
+    try:
+        # PlanetScope: sun_elevation is available, zenith = 90 - elevation
+        # Property name varies: 'sun_elevation', 'view:sun_elevation', 'sun_elevation_angle'
+        sun_elevation = None
+        
+        # Try different property names used by Planet
+        for prop_name in ['sun_elevation', 'view:sun_elevation', 'sun_elevation_angle']:
+            try:
+                sun_elevation = planet_img.get(prop_name).getInfo()
+                if sun_elevation is not None:
+                    break
+            except:
+                continue
+        
+        if sun_elevation is not None:
+            # Convert elevation to zenith: zenith = 90 - elevation
+            planet_zenith = 90.0 - float(sun_elevation)
+    except Exception as e:
+        pass
+    
+    return s2_zenith, planet_zenith
+
+
 def process_tile(tile_info):
     """
     Process a single tile across all temporal frames.
@@ -317,8 +369,9 @@ def process_tile(tile_info):
             - sequence: List of matched pairs
             - planet_collection: Planet image collection
             - s2_collection: Sentinel-2 image collection
-            - planet_bands: List of Planet band names
-            - sentinel_bands: List of Sentinel-2 band names
+            - planet_bands: List of Planet band names (default fallback)
+            - sentinel_bands: List of Sentinel-2 band names (default fallback)
+            - date_band_config: Dict mapping planet_date -> band configuration
             - cache_dir: Cache directory path
             - region_name: Region name
             - seq_idx: Sequence index
@@ -331,8 +384,9 @@ def process_tile(tile_info):
     sequence = tile_info['sequence']
     planet_collection = tile_info['planet_collection']
     s2_collection = tile_info['s2_collection']
-    planet_bands = tile_info['planet_bands']
-    sentinel_bands = tile_info['sentinel_bands']
+    default_planet_bands = tile_info['planet_bands']
+    default_sentinel_bands = tile_info['sentinel_bands']
+    date_band_config = tile_info.get('date_band_config', {})  # Dynamic band config per date
     cache_dir = tile_info['cache_dir']
     region_name = tile_info['region_name']
     seq_idx = tile_info['seq_idx']
@@ -340,8 +394,33 @@ def process_tile(tile_info):
     lr_frames = []
     hr_frames = []
     dates = []
+    s2_zenith_angles = []      # Solar zenith angles for Sentinel-2
+    planet_zenith_angles = []  # Solar zenith angles for PlanetScope
     
-    # Download all frames for this tile
+    # =========================================================================
+    # DETERMINE SEQUENCE BAND STRATEGY BEFORE DOWNLOADING
+    # =========================================================================
+    # Check band modes for ALL frames in this sequence to decide on uniform strategy
+    # If any frame is 4-band, use 4-band for entire sequence (temporal consistency)
+    # This prevents data loss from post-download truncation
+    sequence_band_modes = []
+    for pair in sequence:
+        frame_config = date_band_config.get(pair['planet_date'], {'mode': '4-band'})
+        sequence_band_modes.append(frame_config['mode'])
+    
+    # Determine unified strategy for this sequence
+    if all(mode == '8-band' for mode in sequence_band_modes):
+        # All frames are 8-band - use full 6-band configuration
+        sequence_mode = '8-band'
+        sequence_planet_bands = ['B1', 'B2', 'B4', 'B6', 'B7', 'B8']
+        sequence_sentinel_bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B8A']
+    else:
+        # Mixed or all 4-band - use 4-band for temporal consistency
+        sequence_mode = '4-band'
+        sequence_planet_bands = default_planet_bands  # ['B1', 'B2', 'B3', 'B4']
+        sequence_sentinel_bands = default_sentinel_bands  # ['B2', 'B3', 'B4', 'B8A']
+    
+    # Download all frames for this tile using UNIFORM band configuration
     all_frames_ok = True
     for frame_idx, pair in enumerate(sequence):
         try:
@@ -349,10 +428,10 @@ def process_tile(tile_info):
             planet_img = planet_collection.filter(ee.Filter.eq("id_pref", pair["planet_id"])).first()
             s2_img = s2_collection.filter(ee.Filter.eq("id_pref", pair["s2_id"])).first()
             
-            # Download just this tile region
+            # Download just this tile region with SEQUENCE-UNIFORM bands
             hr_array, lr_array = download_tile_region(
                 planet_img, s2_img, tile_bounds,
-                planet_bands, sentinel_bands
+                sequence_planet_bands, sequence_sentinel_bands
             )
             
             if hr_array is None or lr_array is None:
@@ -393,6 +472,12 @@ def process_tile(tile_info):
                 lr_array = lr_array[:, :, :min_bands]
                 hr_array = hr_array[:, :, :min_bands]
             
+            # Extract solar zenith angles for this frame
+            # Optimal ~45° for aquatic vegetation analysis
+            s2_zenith, planet_zenith = get_solar_zenith_angles(planet_img, s2_img)
+            s2_zenith_angles.append(s2_zenith)
+            planet_zenith_angles.append(planet_zenith)
+            
             lr_frames.append(lr_array)
             hr_frames.append(hr_array)
             dates.append((pair['s2_date'], pair['planet_date']))
@@ -403,6 +488,16 @@ def process_tile(tile_info):
     
     # Create sample if all frames downloaded
     if all_frames_ok and len(lr_frames) == len(sequence):
+        # All frames should have uniform band counts now (determined before download)
+        # Verify this is the case (sanity check)
+        lr_band_counts = [f.shape[-1] for f in lr_frames]
+        hr_band_counts = [f.shape[-1] for f in hr_frames]
+        
+        if len(set(lr_band_counts)) > 1 or len(set(hr_band_counts)) > 1:
+            # This shouldn't happen with the uniform strategy, but log if it does
+            print(f"\n      ⚠️ Unexpected band count mismatch: LR={lr_band_counts}, HR={hr_band_counts}")
+            return None
+        
         # Separate S2 and Planet dates
         s2_dates = [d[0] for d in dates]
         planet_dates = [d[1] for d in dates]
@@ -415,7 +510,14 @@ def process_tile(tile_info):
             region_name=region_name,
             sequence_id=seq_idx,
             tile_id=tile_idx,
-            tile_bounds={'bounds': tile_bounds}
+            tile_bounds={
+                'bounds': tile_bounds, 
+                'band_mode': sequence_mode,  # '8-band' or '4-band'
+                'planet_bands': sequence_planet_bands,
+                'sentinel_bands': sequence_sentinel_bands
+            },
+            s2_solar_zenith=s2_zenith_angles,
+            planet_solar_zenith=planet_zenith_angles
         )
         return sample
     else:
@@ -438,6 +540,7 @@ def process_single_sequence(sequence_info):
     s2_collection = sequence_info['s2_collection']
     planet_bands = sequence_info['planet_bands']
     sentinel_bands = sequence_info['sentinel_bands']
+    date_band_config = sequence_info.get('date_band_config', {})  # Dynamic band config per date
     cache_dir = sequence_info['cache_dir']
     region_name = sequence_info['region_name']
     seq_idx = sequence_info['seq_idx']
@@ -462,6 +565,7 @@ def process_single_sequence(sequence_info):
             's2_collection': s2_collection,
             'planet_bands': planet_bands,
             'sentinel_bands': sentinel_bands,
+            'date_band_config': date_band_config,  # Dynamic band config per date
             'cache_dir': cache_dir,
             'region_name': region_name,
             'seq_idx': seq_idx
@@ -598,7 +702,59 @@ def main():
     
     print(f"\n📅 Creating {num_sequences} sequences of {args.sequence_length} frames each")
     
-    # Band configuration (use 4-band for simplicity)
+    # =========================================================================
+    # DYNAMIC BAND DETECTION
+    # =========================================================================
+    # Detect 4-band vs 8-band Planet images for each unique date
+    # This is done ONCE at startup to avoid repeated GEE API calls
+    print(f"\n🔬 DYNAMIC BAND DETECTION")
+    print("─" * 80)
+    print(f"   Detecting band availability for all unique Planet dates...")
+    t_detect = time.time()
+    
+    # Get all unique Planet dates from matched pairs
+    all_planet_dates = list(set([p['planet_date'] for p in matched_pairs]))
+    print(f"   📊 Checking {len(all_planet_dates)} unique Planet dates for 8-band capability...")
+    
+    # Dictionary to store band configuration per date
+    date_band_config = {}
+    
+    for pdate in all_planet_dates:
+        try:
+            planet_img = planet_collection.filter(ee.Filter.eq('date_key', pdate)).first()
+            available_bands = planet_img.bandNames().getInfo()
+            
+            # Check for extended bands (8-band SuperDove)
+            has_extended_bands = any(band in available_bands for band in ['B5', 'B6', 'B7', 'B8'])
+            
+            if has_extended_bands and all(band in available_bands for band in ['B5', 'B6', 'B7', 'B8']):
+                date_band_config[pdate] = {
+                    'mode': '8-band',
+                    'planet_bands': ['B1', 'B2', 'B4', 'B6', 'B7', 'B8'],
+                    'sentinel_bands': ['B1', 'B2', 'B3', 'B4', 'B5', 'B8A']
+                }
+            else:
+                date_band_config[pdate] = {
+                    'mode': '4-band',
+                    'planet_bands': ['B1', 'B2', 'B3', 'B4'],
+                    'sentinel_bands': ['B2', 'B3', 'B4', 'B8A']
+                }
+        except Exception as e:
+            print(f"      ⚠️ Error detecting bands for {pdate}, defaulting to 4-band: {e}")
+            date_band_config[pdate] = {
+                'mode': '4-band',
+                'planet_bands': ['B1', 'B2', 'B3', 'B4'],
+                'sentinel_bands': ['B2', 'B3', 'B4', 'B8A']
+            }
+    
+    # Report detection results
+    modes_8band = sum(1 for cfg in date_band_config.values() if cfg['mode'] == '8-band')
+    modes_4band = len(all_planet_dates) - modes_8band
+    print(f"   ✅ Band detection complete in {time.time()-t_detect:.1f}s")
+    print(f"   📊 Found {modes_8band} dates with 8-band, {modes_4band} with 4-band")
+    print("─" * 80)
+    
+    # Default bands (used for coverage checking - use minimal common set)
     planet_bands = ['B1', 'B2', 'B3', 'B4']
     sentinel_bands = ['B2', 'B3', 'B4', 'B8A']
     
@@ -779,6 +935,7 @@ def main():
             's2_collection': s2_collection,
             'planet_bands': planet_bands,
             'sentinel_bands': sentinel_bands,
+            'date_band_config': date_band_config,  # Dynamic band config per date
             'cache_dir': cache_dir,
             'region_name': region_config['name'],
             'seq_idx': seq_idx,

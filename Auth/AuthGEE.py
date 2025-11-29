@@ -462,8 +462,226 @@ def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallbac
         'planet_unmatched_dates': planet_only_dates,
         's2_unmatched_dates': s2_only_dates,
         's2_collection': s2_best,      
-        'planet_collection': pl_best
+        'planet_collection': pl_best,
+        # Full lists for export
+        's2_all_dates': s2_dates,
+        's2_all_ids': s2_ids,
+        'planet_all_dates': pl_dates,
+        'planet_all_ids': pl_ids
     }
+
+
+def export_image_inventory(pair_results: Dict, output_path: str, 
+                           include_metadata: bool = True,
+                           region_name: str = None) -> Dict[str, str]:
+    """
+    Export inventory of available S2 and PlanetScope images to CSV/Excel files.
+    
+    Creates three files:
+    1. {output_path}_s2_inventory.csv - All available Sentinel-2 images
+    2. {output_path}_planet_inventory.csv - All available PlanetScope images  
+    3. {output_path}_matched_pairs.csv - Matched image pairs
+    4. {output_path}_summary.xlsx - Excel workbook with all sheets (if openpyxl available)
+    
+    Args:
+        pair_results: Dictionary returned by find_pairs()
+        output_path: Base path for output files (without extension)
+        include_metadata: Whether to fetch additional metadata from GEE (slower)
+        region_name: Optional region name to include in output
+    
+    Returns:
+        Dictionary with paths to created files
+    """
+    import os
+    from pathlib import Path
+    
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    created_files = {}
+    
+    # =========================================================================
+    # 1. Sentinel-2 Inventory
+    # =========================================================================
+    s2_data = []
+    s2_dates = pair_results.get('s2_all_dates', [])
+    s2_ids = pair_results.get('s2_all_ids', [])
+    matched_s2_dates = set(p['s2_date'] for p in pair_results.get('matched_pairs', []))
+    
+    for date, img_id in zip(s2_dates, s2_ids):
+        row = {
+            'date': date,
+            'image_id': img_id,
+            'matched': 'Yes' if date in matched_s2_dates else 'No',
+            'sensor': 'Sentinel-2'
+        }
+        
+        # Fetch additional metadata if requested
+        if include_metadata and pair_results.get('s2_collection'):
+            try:
+                s2_col = pair_results['s2_collection']
+                img = s2_col.filter(ee.Filter.eq('id_pref', img_id)).first()
+                props = img.toDictionary(['q_cloud', 'dist_noon', 'CLOUDY_PIXEL_PERCENTAGE', 
+                                          'MEAN_SOLAR_ZENITH_ANGLE', 'AOI_CLOUD_FRAC']).getInfo()
+                row['cloud_pct'] = props.get('CLOUDY_PIXEL_PERCENTAGE')
+                row['aoi_cloud_frac'] = props.get('AOI_CLOUD_FRAC')
+                row['solar_zenith'] = props.get('MEAN_SOLAR_ZENITH_ANGLE')
+                row['dist_noon'] = props.get('dist_noon')
+                row['q_cloud'] = props.get('q_cloud')
+            except Exception as e:
+                pass  # Skip metadata if fetch fails
+        
+        if region_name:
+            row['region'] = region_name
+            
+        s2_data.append(row)
+    
+    s2_df = pd.DataFrame(s2_data)
+    s2_csv_path = f"{output_path}_s2_inventory.csv"
+    s2_df.to_csv(s2_csv_path, index=False)
+    created_files['s2_inventory'] = s2_csv_path
+    print(f"✅ Saved S2 inventory: {s2_csv_path} ({len(s2_data)} images)")
+    
+    # =========================================================================
+    # 2. PlanetScope Inventory
+    # =========================================================================
+    planet_data = []
+    planet_dates = pair_results.get('planet_all_dates', [])
+    planet_ids = pair_results.get('planet_all_ids', [])
+    matched_planet_dates = set(p['planet_date'] for p in pair_results.get('matched_pairs', []))
+    
+    for date, img_id in zip(planet_dates, planet_ids):
+        row = {
+            'date': date,
+            'image_id': img_id,
+            'matched': 'Yes' if date in matched_planet_dates else 'No',
+            'sensor': 'PlanetScope'
+        }
+        
+        # Fetch additional metadata if requested
+        if include_metadata and pair_results.get('planet_collection'):
+            try:
+                pl_col = pair_results['planet_collection']
+                img = pl_col.filter(ee.Filter.eq('id_pref', img_id)).first()
+                # Try different property names for Planet metadata
+                props = img.toDictionary().getInfo()
+                row['cloud_pct'] = props.get('q_cloud')
+                row['sun_elevation'] = props.get('sun_elevation') or props.get('sun_elevation_safe')
+                if row['sun_elevation']:
+                    row['solar_zenith'] = 90.0 - float(row['sun_elevation'])
+                row['dist_noon'] = props.get('dist_noon')
+                row['band_mode'] = props.get('band_mode', 'unknown')
+                row['aoi_clear_frac'] = props.get('aoi_clear_frac')
+            except Exception as e:
+                pass  # Skip metadata if fetch fails
+        
+        if region_name:
+            row['region'] = region_name
+            
+        planet_data.append(row)
+    
+    planet_df = pd.DataFrame(planet_data)
+    planet_csv_path = f"{output_path}_planet_inventory.csv"
+    planet_df.to_csv(planet_csv_path, index=False)
+    created_files['planet_inventory'] = planet_csv_path
+    print(f"✅ Saved Planet inventory: {planet_csv_path} ({len(planet_data)} images)")
+    
+    # =========================================================================
+    # 3. Matched Pairs
+    # =========================================================================
+    matched_data = []
+    for pair in pair_results.get('matched_pairs', []):
+        row = {
+            's2_date': pair['s2_date'],
+            'planet_date': pair['planet_date'],
+            's2_id': pair['s2_id'],
+            'planet_id': pair['planet_id'],
+            'date_diff_days': abs((datetime.strptime(pair['s2_date'], '%Y-%m-%d') - 
+                                   datetime.strptime(pair['planet_date'], '%Y-%m-%d')).days)
+        }
+        if region_name:
+            row['region'] = region_name
+        matched_data.append(row)
+    
+    matched_df = pd.DataFrame(matched_data)
+    matched_csv_path = f"{output_path}_matched_pairs.csv"
+    matched_df.to_csv(matched_csv_path, index=False)
+    created_files['matched_pairs'] = matched_csv_path
+    print(f"✅ Saved matched pairs: {matched_csv_path} ({len(matched_data)} pairs)")
+    
+    # =========================================================================
+    # 4. Unmatched Images
+    # =========================================================================
+    unmatched_data = []
+    for date in pair_results.get('s2_unmatched_dates', []):
+        unmatched_data.append({'date': date, 'sensor': 'Sentinel-2', 'status': 'No Planet match'})
+    for date in pair_results.get('planet_unmatched_dates', []):
+        unmatched_data.append({'date': date, 'sensor': 'PlanetScope', 'status': 'No S2 match'})
+    
+    if unmatched_data:
+        unmatched_df = pd.DataFrame(unmatched_data)
+        unmatched_csv_path = f"{output_path}_unmatched.csv"
+        unmatched_df.to_csv(unmatched_csv_path, index=False)
+        created_files['unmatched'] = unmatched_csv_path
+        print(f"✅ Saved unmatched images: {unmatched_csv_path} ({len(unmatched_data)} images)")
+    
+    # =========================================================================
+    # 5. Summary Excel (if openpyxl available)
+    # =========================================================================
+    try:
+        excel_path = f"{output_path}_summary.xlsx"
+        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
+            # Summary sheet
+            summary_data = {
+                'Metric': [
+                    'Total S2 Images',
+                    'Total Planet Images', 
+                    'Matched Pairs',
+                    'Unmatched S2',
+                    'Unmatched Planet',
+                    'Match Rate (S2)',
+                    'Match Rate (Planet)',
+                    'Date Range Start',
+                    'Date Range End'
+                ],
+                'Value': [
+                    len(s2_dates),
+                    len(planet_dates),
+                    len(pair_results.get('matched_pairs', [])),
+                    len(pair_results.get('s2_unmatched_dates', [])),
+                    len(pair_results.get('planet_unmatched_dates', [])),
+                    f"{100 * len(matched_s2_dates) / max(len(s2_dates), 1):.1f}%",
+                    f"{100 * len(matched_planet_dates) / max(len(planet_dates), 1):.1f}%",
+                    min(s2_dates + planet_dates) if (s2_dates or planet_dates) else 'N/A',
+                    max(s2_dates + planet_dates) if (s2_dates or planet_dates) else 'N/A'
+                ]
+            }
+            if region_name:
+                summary_data['Metric'].insert(0, 'Region')
+                summary_data['Value'].insert(0, region_name)
+            
+            pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
+            s2_df.to_excel(writer, sheet_name='S2_Inventory', index=False)
+            planet_df.to_excel(writer, sheet_name='Planet_Inventory', index=False)
+            matched_df.to_excel(writer, sheet_name='Matched_Pairs', index=False)
+            if unmatched_data:
+                unmatched_df.to_excel(writer, sheet_name='Unmatched', index=False)
+        
+        created_files['excel_summary'] = excel_path
+        print(f"✅ Saved Excel summary: {excel_path}")
+    except ImportError:
+        print("⚠️ openpyxl not installed, skipping Excel export. Install with: pip install openpyxl")
+    except Exception as e:
+        print(f"⚠️ Excel export failed: {e}")
+    
+    # Print summary
+    print(f"\n📊 INVENTORY SUMMARY:")
+    print(f"   S2 images: {len(s2_dates)} ({len(matched_s2_dates)} matched)")
+    print(f"   Planet images: {len(planet_dates)} ({len(matched_planet_dates)} matched)")
+    print(f"   Matched pairs: {len(pair_results.get('matched_pairs', []))}")
+    
+    return created_files
+
 
 def get_image_from_collection(image_collection, image_id: str, id_field: str = 'id_pref'):
     """

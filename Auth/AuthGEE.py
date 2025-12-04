@@ -291,20 +291,33 @@ def extract_date(id_str):
     return ''
 
 def _match_dates_with_tolerance_nn(s2_map, pl_map, days_tol=12):
+    """
+    Match S2 and Planet dates with improved strategy:
+    1. FIRST: Match exact same-day pairs (distance = 0)
+    2. THEN: Match remaining using nearest-neighbor
+    This prevents early S2 dates from "stealing" Planet dates that could be exact matches later.
+    """
     to_dt = lambda s: _dt.strptime(s, "%Y-%m-%d")
 
     s2_dates = sorted(s2_map.keys())
     pl_dates = sorted(pl_map.keys())
     used_pl = set()
+    used_s2 = set()
     matched = []
 
-    # DEBUG: show the first S2 date’s candidate count
-    if s2_dates and pl_dates:
-        s0 = s2_dates[0]
-        cand0 = [pd for pd in pl_dates if abs((to_dt(pd) - to_dt(s0)).days) <= days_tol]
-        print(f"[matcher] first S2 {s0} has {len(cand0)} PL candidates within ±{days_tol}d")
-
+    # PHASE 1: Exact same-day matches first
     for s2d in s2_dates:
+        if s2d in pl_dates and s2d not in used_pl:
+            matched.append((s2d, s2d))
+            used_pl.add(s2d)
+            used_s2.add(s2d)
+    
+    exact_matches = len(matched)
+
+    # PHASE 2: Nearest-neighbor for remaining
+    for s2d in s2_dates:
+        if s2d in used_s2:
+            continue
         sdt = to_dt(s2d)
         candidates = []
         for pld in pl_dates:
@@ -319,13 +332,15 @@ def _match_dates_with_tolerance_nn(s2_map, pl_map, days_tol=12):
             _, best_pld = candidates[0]
             matched.append((s2d, best_pld))
             used_pl.add(best_pld)
+            used_s2.add(s2d)
 
     pl_only = [d for d in pl_dates if d not in used_pl]
-    s2_only = [d for d in s2_dates if d not in {m[0] for m in matched}]
+    s2_only = [d for d in s2_dates if d not in used_s2]
 
     # DEBUG: summarize
-    print(f"[matcher] nn result: {len(matched)} matched, {len(pl_only)} PL-only, {len(s2_only)} S2-only")
+    print(f"[matcher] {exact_matches} exact + {len(matched)-exact_matches} nn = {len(matched)} matched, {len(pl_only)} PL-only, {len(s2_only)} S2-only")
     return matched, pl_only, s2_only
+
 
 # --------- Main pairing function (uses scores) ----------
 def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallback=None):
@@ -344,36 +359,50 @@ def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallbac
     s2_best = _best_per_day(s2)
 
 
-    try:
-        pl_prepped = (ee.ImageCollection(planet_coll_id)
+    # MERGE BOTH REPOSITORIES (not fallback) to get maximum coverage
+    def prep_planet_collection(coll_id, conf_threshold=60):
+        """Prepare a Planet collection with all filters and scores"""
+        return (ee.ImageCollection(coll_id)
             .filterBounds(aoi)
             .filterDate(start_date, end_date)
             .map(_add_common_fields)  
             .map(_add_planet_quality) 
             .map(_add_planet_score)
             .filter(ee.Filter.lt('q_cloud', 20))                 
-            .map(make_add_udm_mask_and_score_for_aoi(aoi, conf_threshold=60))
+            .map(make_add_udm_mask_and_score_for_aoi(aoi, conf_threshold=conf_threshold))
             .map(_add_pref_id))
-        
-        # Test if collection has data
-        size = pl_prepped.size().getInfo()
-        if size == 0 and planet_coll_id_fallback:
-            print(f"   Primary collection empty, trying fallback...")
-            raise ValueError("Empty collection, try fallback")
-    except Exception as e:
-        if planet_coll_id_fallback:
-            print(f"   Using fallback collection: {planet_coll_id_fallback}")
-            pl_prepped = (ee.ImageCollection(planet_coll_id_fallback)
-                .filterBounds(aoi)
-                .filterDate(start_date, end_date)
-                .map(_add_common_fields)  
-                .map(_add_planet_quality) 
-                .map(_add_planet_score)
-                .filter(ee.Filter.lt('q_cloud', 20))                 
-                .map(make_add_udm_mask_and_score_for_aoi(aoi, conf_threshold=80))
-                .map(_add_pref_id))
-        else:
-            raise e
+    
+    # Try primary collection
+    try:
+        pl_primary = prep_planet_collection(planet_coll_id, conf_threshold=60)
+        primary_size = pl_primary.size().getInfo()
+    except:
+        primary_size = 0
+        pl_primary = None
+    
+    # Try fallback/secondary collection if provided
+    secondary_size = 0
+    pl_secondary = None
+    if planet_coll_id_fallback:
+        try:
+            pl_secondary = prep_planet_collection(planet_coll_id_fallback, conf_threshold=60)
+            secondary_size = pl_secondary.size().getInfo()
+        except:
+            secondary_size = 0
+            pl_secondary = None
+    
+    # MERGE both collections if both have data
+    if primary_size > 0 and secondary_size > 0:
+        print(f"   ✅ MERGING both repositories: primary={primary_size}, secondary={secondary_size} images")
+        pl_prepped = pl_primary.merge(pl_secondary)
+    elif primary_size > 0:
+        print(f"   Using primary collection only: {primary_size} images")
+        pl_prepped = pl_primary
+    elif secondary_size > 0:
+        print(f"   Using secondary collection only: {secondary_size} images")
+        pl_prepped = pl_secondary
+    else:
+        raise ValueError(f"No Planet data found in either collection for {start_date} to {end_date}")
         
 
     pl_best = (planet_best_per_day_adaptive(pl_prepped, aoi)
@@ -381,13 +410,32 @@ def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallbac
         .filter(ee.Filter.gt('has_data', 0))
     )
 
-    # Dates
-    s2_dates = s2_best.aggregate_array('date_key').getInfo()
-    s2_ids   = s2_best.aggregate_array('id_pref').getInfo()
+    # Dates - with retry logic for GEE rate limiting
+    import time as _time_module
+    def _getInfo_with_retry(ee_obj, max_retries=5, initial_delay=10):
+        """Get info from EE object with exponential backoff on rate limiting."""
+        for attempt in range(max_retries):
+            try:
+                return ee_obj.getInfo()
+            except Exception as e:
+                if "Too many concurrent aggregations" in str(e) and attempt < max_retries - 1:
+                    delay = initial_delay * (2 ** attempt)  # Exponential backoff
+                    print(f"   ⏳ GEE rate limit hit, waiting {delay}s (attempt {attempt + 1}/{max_retries})...")
+                    _time_module.sleep(delay)
+                else:
+                    raise
+    
+    # Fetch S2 data first (lighter computation)
+    s2_dates = _getInfo_with_retry(s2_best.aggregate_array('date_key'))
+    s2_ids   = _getInfo_with_retry(s2_best.aggregate_array('id_pref'))
 
-
-    pl_dates = pl_best.aggregate_array('date_key').getInfo()
-    pl_ids   = pl_best.aggregate_array('id_pref').getInfo()
+    # Small delay to let GEE aggregations complete before heavy Planet fetch
+    _time_module.sleep(2)
+    
+    # Planet fetch triggers heavy computations from planet_best_per_day_adaptive
+    pl_dates = _getInfo_with_retry(pl_best.aggregate_array('date_key'))
+    _time_module.sleep(1)  # Brief pause between heavy calls
+    pl_ids   = _getInfo_with_retry(pl_best.aggregate_array('id_pref'))
 
 
 

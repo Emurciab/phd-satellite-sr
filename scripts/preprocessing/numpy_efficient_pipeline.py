@@ -357,6 +357,8 @@ def histogram_match_band(source: np.ndarray, reference: np.ndarray) -> np.ndarra
     This adjusts the spectral response of the source (Planet) to match
     the reference (Sentinel-2) by matching their cumulative distributions.
     
+    Uses skimage's optimized match_histograms internally when available.
+    
     Args:
         source: Source band array (H, W) - Planet band to be adjusted
         reference: Reference band array (H_ref, W_ref) - Sentinel-2 target distribution
@@ -364,6 +366,14 @@ def histogram_match_band(source: np.ndarray, reference: np.ndarray) -> np.ndarra
     Returns:
         matched: Source band with histogram matched to reference (H, W)
     """
+    try:
+        # Try using skimage's optimized implementation (much faster)
+        from skimage.exposure import match_histograms as skimage_match
+        return skimage_match(source, reference).astype(source.dtype)
+    except ImportError:
+        pass  # Fall through to manual implementation
+    
+    # Manual implementation fallback
     # Flatten arrays and remove zeros (masked/no-data pixels)
     source_flat = source.flatten()
     reference_flat = reference.flatten()
@@ -393,10 +403,18 @@ def histogram_match_band(source: np.ndarray, reference: np.ndarray) -> np.ndarra
     # For each source CDF value, find corresponding reference value
     interp_values = np.interp(source_cdf, reference_cdf, reference_values)
     
-    # Create lookup table mapping source values to matched values
+    # Vectorized lookup table application
+    # Create a mapping array: source_values[i] -> interp_values[i]
+    # Then use source_inverse to map each pixel to its matched value
     matched_flat = source_flat.copy()
-    for i, src_val in enumerate(source_values):
-        matched_flat[source_flat == src_val] = interp_values[i]
+    
+    # Use np.searchsorted for vectorized mapping instead of loop
+    # Find which source_value each pixel corresponds to
+    valid_mask = source_flat > 0
+    pixel_indices = np.searchsorted(source_values, source_flat[valid_mask])
+    # Clip to valid range (searchsorted can return len if > max)
+    pixel_indices = np.clip(pixel_indices, 0, len(interp_values) - 1)
+    matched_flat[valid_mask] = interp_values[pixel_indices]
     
     # Reshape back to original shape
     return matched_flat.reshape(source.shape)
@@ -437,19 +455,17 @@ def harmonize_planet_to_sentinel2(hr_array: np.ndarray,
     t_harm = time.time()
     
     try:
-        # Resize LR to match HR resolution for histogram comparison
-        from skimage.transform import resize
-        lr_resized = resize(lr_array, hr_array.shape[:2], order=1, preserve_range=True, anti_aliasing=True)
-        
         # Ensure both have same number of bands
-        num_bands = min(hr_array.shape[2], lr_resized.shape[2])
+        num_bands = min(hr_array.shape[2], lr_array.shape[2])
         
         # Apply histogram matching per band
+        # NOTE: No resize needed! histogram_match_band only needs histogram statistics,
+        # not pixel-to-pixel correspondence. Using original LR resolution is faster.
         hr_harmonized = np.zeros_like(hr_array[:, :, :num_bands])
         
         for band_idx in range(num_bands):
             hr_band = hr_array[:, :, band_idx]
-            lr_band = lr_resized[:, :, band_idx]
+            lr_band = lr_array[:, :, band_idx]  # Use original LR resolution
             
             # Match HR band histogram to LR band histogram
             hr_harmonized[:, :, band_idx] = histogram_match_band(hr_band, lr_band)

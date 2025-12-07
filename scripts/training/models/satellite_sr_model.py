@@ -420,7 +420,9 @@ class MultiResolutionSatelliteSR(nn.Module):
         num_frames: int = 3,
         scale_factor_10m: float = 3.33,  # 10m → 3m
         scale_factor_20m: float = 3.33,  # 20m → 6m (maintains relative scale)
-        use_cross_resolution_fusion: bool = True
+        use_cross_resolution_fusion: bool = True,
+        in_channels_10m: int = 3,  # B2, B3, B4
+        in_channels_20m: int = 1,  # B8A (or 2 for B5 + B8A)
     ):
         super().__init__()
         
@@ -428,16 +430,18 @@ class MultiResolutionSatelliteSR(nn.Module):
         self.scale_factor_20m = scale_factor_20m
         self.num_frames = num_frames
         self.use_cross_resolution_fusion = use_cross_resolution_fusion
+        self.in_channels_10m = in_channels_10m
+        self.in_channels_20m = in_channels_20m
         
         # Encoders for each resolution
         self.encoder_10m = EncoderBranch(
-            in_channels=3,  # B2, B3, B4
+            in_channels=in_channels_10m,  # B2, B3, B4
             base_channels=base_channels,
             num_blocks=num_encoder_blocks
         )
         
         self.encoder_20m = EncoderBranch(
-            in_channels=1,  # B8A
+            in_channels=in_channels_20m,  # B8A or B5+B8A
             base_channels=base_channels,
             num_blocks=num_encoder_blocks
         )
@@ -462,20 +466,20 @@ class MultiResolutionSatelliteSR(nn.Module):
             )
         
         # Spectral consistency
-        self.spectral_consistency_10m = SpectralConsistencyModule(base_channels, 3)
-        self.spectral_consistency_20m = SpectralConsistencyModule(base_channels, 1)
+        self.spectral_consistency_10m = SpectralConsistencyModule(base_channels, in_channels_10m)
+        self.spectral_consistency_20m = SpectralConsistencyModule(base_channels, in_channels_20m)
         
         # Upscalers
         self.upscaler_10m = ProgressiveUpscaler(
-            base_channels, 3, scale_factor_10m, base_channels
+            base_channels, in_channels_10m, scale_factor_10m, base_channels
         )
         self.upscaler_20m = ProgressiveUpscaler(
-            base_channels, 1, scale_factor_20m, base_channels
+            base_channels, in_channels_20m, scale_factor_20m, base_channels
         )
         
         # Physics-constrained output heads
-        self.output_head_10m = PhysicsConstrainedHead(3, 3)
-        self.output_head_20m = PhysicsConstrainedHead(1, 1)
+        self.output_head_10m = PhysicsConstrainedHead(in_channels_10m, in_channels_10m)
+        self.output_head_20m = PhysicsConstrainedHead(in_channels_20m, in_channels_20m)
     
     def forward(
         self,

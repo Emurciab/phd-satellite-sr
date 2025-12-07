@@ -30,10 +30,14 @@ import time
 from Auth.AuthGEE import find_pairs, PLANET_COLLECTION_ID, regions
 from Auth.AuthGEE import get_paired_images_from_collections, download_paired_images_as_arrays
 
-# Import chunked download function
+# Import chunked download function (optional - only needed for full image downloads)
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
-from chunked_download_fast import download_image_chunked_parallel
+try:
+    from chunked_download_fast import download_image_chunked_parallel
+except ImportError:
+    # Module not available - tile-based downloads don't need this
+    download_image_chunked_parallel = None
 
 # Sub-pixel coregistration using AROSICS or phase correlation
 def coregister_hr_to_lr_arosics(hr_array: np.ndarray, lr_array: np.ndarray, 

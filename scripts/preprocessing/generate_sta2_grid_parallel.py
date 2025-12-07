@@ -72,6 +72,29 @@ class FrameQualityStats:
         }
 
 
+def normalize_sample(sample: TrainingSample, scale_factor: float = 10000.0) -> TrainingSample:
+    """
+    Normalize sample arrays from raw reflectance (0-10000) to [0, 1] range.
+    
+    Satellite data typically comes in surface reflectance * 10000 format.
+    This normalizes to [0, 1] range for neural network training.
+    
+    Args:
+        sample: TrainingSample with raw reflectance values
+        scale_factor: Division factor (default 10000 for surface reflectance)
+    
+    Returns:
+        TrainingSample with normalized arrays (in-place modification)
+    """
+    sample.lr_sequence = np.clip(sample.lr_sequence / scale_factor, 0, 1).astype(np.float32)
+    sample.hr_sequence = np.clip(sample.hr_sequence / scale_factor, 0, 1).astype(np.float32)
+    
+    if sample.lr_20m_sequence is not None:
+        sample.lr_20m_sequence = np.clip(sample.lr_20m_sequence / scale_factor, 0, 1).astype(np.float32)
+    
+    return sample
+
+
 def compute_frame_quality_stats(array: np.ndarray, 
                                  zero_threshold: float = 0.05,
                                  outlier_percentile: float = 99.5,
@@ -598,16 +621,35 @@ def download_metatile_batched(planet_img: ee.Image, s2_img: ee.Image,
     meta_width = n_cols * tile_size_px
     meta_height = n_rows * tile_size_px
     
+    # =========================================================================
+    # NATIVE RESOLUTION DOWNLOAD - Key SR fix!
+    # Download LR at native 10m resolution instead of upsampling to 3m
+    # Scale factor: 10m / 3m ≈ 3.33, so LR pixels = HR pixels / 3.33
+    # For 256px HR tile: LR 10m ≈ 77px, LR 20m ≈ 38px
+    # =========================================================================
+    scale_factor_10m = lr_scale / hr_scale  # 10m / 3m = 3.33
+    scale_factor_20m = 20.0 / hr_scale       # 20m / 3m = 6.67
+    
+    # LR tile sizes at native resolution (must be integers)
+    lr_10m_tile_size = int(round(tile_size_px / scale_factor_10m))  # ~77 for 256px HR
+    lr_20m_tile_size = int(round(tile_size_px / scale_factor_20m))  # ~38 for 256px HR
+    
+    # Meta-tile sizes for each resolution
+    lr_10m_meta_width = n_cols * lr_10m_tile_size
+    lr_10m_meta_height = n_rows * lr_10m_tile_size
+    lr_20m_meta_width = n_cols * lr_20m_tile_size
+    lr_20m_meta_height = n_rows * lr_20m_tile_size
+    
     results = {}
     
     try:
-        # Download Planet meta-tile (HR at 3m)
+        # Download Planet meta-tile (HR at 3m native resolution)
         hr_array = _compute_pixels_download(
             planet_img, meta_bounds, planet_bands,
             width=meta_width, height=meta_height
         )
         
-        # Download S2 10m bands
+        # Download S2 10m bands at NATIVE 10m resolution (NOT upsampled to 3m!)
         bands_10m = [b for b in sentinel_bands if b in ['B2', 'B3', 'B4', 'B8']]
         bands_20m = [b for b in sentinel_bands if b in ['B5', 'B6', 'B7', 'B8A', 'B11', 'B12']]
         
@@ -615,17 +657,17 @@ def download_metatile_batched(planet_img: ee.Image, s2_img: ee.Image,
         lr_20m_array = None
         
         if bands_10m:
-            # 10m bands: same tile size as reference
+            # 10m bands: download at native 10m resolution (~77px per tile)
             lr_10m_array = _compute_pixels_download(
                 s2_img, meta_bounds, bands_10m,
-                width=meta_width, height=meta_height
+                width=lr_10m_meta_width, height=lr_10m_meta_height
             )
         
         if bands_20m:
-            # 20m bands: half the resolution
+            # 20m bands: download at native 20m resolution (~38px per tile)
             lr_20m_array = _compute_pixels_download(
                 s2_img, meta_bounds, bands_20m,
-                width=meta_width // 2, height=meta_height // 2
+                width=lr_20m_meta_width, height=lr_20m_meta_height
             )
         
         if hr_array is None:
@@ -637,29 +679,29 @@ def download_metatile_batched(planet_img: ee.Image, s2_img: ee.Image,
             col = int(round((tile_bounds[0] - meta_bounds[0]) / tile_width))
             row = int(round((meta_bounds[3] - tile_bounds[3]) / tile_height))  # Y is inverted
             
-            # Extract HR tile
+            # Extract HR tile (256x256 at 3m)
             hr_tile = hr_array[
                 row * tile_size_px:(row + 1) * tile_size_px,
                 col * tile_size_px:(col + 1) * tile_size_px,
                 :
             ]
             
-            # Extract LR tiles
+            # Extract LR tiles at NATIVE resolution
             lr_data = {}
             if lr_10m_array is not None:
+                # Extract 10m tile (~77x77 native resolution)
                 lr_data['bands_10m'] = lr_10m_array[
-                    row * tile_size_px:(row + 1) * tile_size_px,
-                    col * tile_size_px:(col + 1) * tile_size_px,
+                    row * lr_10m_tile_size:(row + 1) * lr_10m_tile_size,
+                    col * lr_10m_tile_size:(col + 1) * lr_10m_tile_size,
                     :
                 ]
                 lr_data['band_names_10m'] = bands_10m
             
             if lr_20m_array is not None:
-                # 20m tiles are half size
-                half_tile = tile_size_px // 2
+                # Extract 20m tile (~38x38 native resolution)
                 lr_data['bands_20m'] = lr_20m_array[
-                    row * half_tile:(row + 1) * half_tile,
-                    col * half_tile:(col + 1) * half_tile,
+                    row * lr_20m_tile_size:(row + 1) * lr_20m_tile_size,
+                    col * lr_20m_tile_size:(col + 1) * lr_20m_tile_size,
                     :
                 ]
                 lr_data['band_names_20m'] = bands_20m
@@ -757,31 +799,44 @@ def download_all_frames_batched(sequence: List[Dict], tile_bounds: List[float],
             planet_img = planet_collection.filter(ee.Filter.eq("id_pref", pair["planet_id"])).first()
             s2_img = s2_collection.filter(ee.Filter.eq("id_pref", pair["s2_id"])).first()
             
-            # Download using computePixels (5x faster than sampleRectangle)
+            # =========================================================================
+            # NATIVE RESOLUTION DOWNLOAD - Key SR fix!
+            # HR (Planet @ 3m): tile_size_px (256)
+            # LR 10m (S2 @ 10m): tile_size_px / scale_factor_10m (~77)
+            # LR 20m (S2 @ 20m): tile_size_px / scale_factor_20m (~38)
+            # =========================================================================
+            scale_factor_10m = 10.0 / 3.0  # 10m / 3m = 3.33
+            scale_factor_20m = 20.0 / 3.0  # 20m / 3m = 6.67
+            lr_10m_size = int(round(tile_size_px / scale_factor_10m))  # ~77
+            lr_20m_size = int(round(tile_size_px / scale_factor_20m))  # ~38
+            
+            # Download HR (Planet) at 3m native resolution
             hr_array = _compute_pixels_download(
                 planet_img, tile_bounds, planet_bands,
                 width=tile_size_px, height=tile_size_px
             )
             
-            # Download S2 at native resolutions
+            # Download S2 at NATIVE resolutions (not upsampled!)
             bands_10m = [b for b in sentinel_bands if b in ['B2', 'B3', 'B4', 'B8']]
             bands_20m = [b for b in sentinel_bands if b in ['B5', 'B6', 'B7', 'B8A', 'B11', 'B12']]
             
             lr_data = {}
             
             if bands_10m:
+                # 10m bands at native 10m resolution (~77x77)
                 lr_10m = _compute_pixels_download(
                     s2_img, tile_bounds, bands_10m,
-                    width=tile_size_px, height=tile_size_px
+                    width=lr_10m_size, height=lr_10m_size
                 )
                 if lr_10m is not None:
                     lr_data['bands_10m'] = lr_10m
                     lr_data['band_names_10m'] = bands_10m
             
             if bands_20m:
+                # 20m bands at native 20m resolution (~38x38)
                 lr_20m = _compute_pixels_download(
                     s2_img, tile_bounds, bands_20m,
-                    width=tile_size_px // 2, height=tile_size_px // 2
+                    width=lr_20m_size, height=lr_20m_size
                 )
                 if lr_20m is not None:
                     lr_data['bands_20m'] = lr_20m
@@ -1268,6 +1323,11 @@ def process_tile(tile_info):
             dates.append((pair['s2_date'], pair['planet_date']))
             
         except Exception as e:
+            import traceback
+            print(f"\n      ❌ Frame {frame_idx} processing error: {e}")
+            print(f"         HR shape: {hr_array.shape if hr_array is not None else 'None'}")
+            print(f"         LR 10m shape: {lr_array_10m.shape if lr_array_10m is not None else 'None'}")
+            traceback.print_exc()
             all_frames_ok = False
             break
     
@@ -1474,6 +1534,10 @@ def main():
                        help='Use batched computePixels for ~5x faster downloads (default: True)')
     parser.add_argument('--no-batched', dest='use_batched', action='store_false',
                        help='Disable batched downloads (use legacy sampleRectangle)')
+    parser.add_argument('--normalize', action='store_true', default=True,
+                       help='Normalize data to [0, 1] range for training (default: True)')
+    parser.add_argument('--no-normalize', dest='normalize', action='store_false',
+                       help='Keep raw reflectance values (0-10000 scale)')
     
     args = parser.parse_args()
     
@@ -2067,6 +2131,15 @@ def main():
         print("\n❌ No samples generated!")
         return
     
+    # Normalize samples to [0, 1] range for neural network training
+    if args.normalize:
+        print(f"\n🔄 Normalizing {len(all_samples)} samples to [0, 1] range...")
+        for i, sample in enumerate(all_samples):
+            normalize_sample(sample)  # In-place normalization
+        print("   ✓ Normalization complete")
+    else:
+        print(f"\n⚠️  Skipping normalization (raw reflectance values preserved)")
+    
     dataset_path = output_dir / 'dataset.pkl'
     print(f"\n💾 Saving {len(all_samples)} samples...")
     
@@ -2077,7 +2150,9 @@ def main():
             'sequence_length': args.sequence_length,
             'num_samples': len(all_samples),
             'coverage_threshold': args.coverage_threshold,
-            'grid_based': True
+            'grid_based': True,
+            'normalized': args.normalize,  # True if data is in [0, 1] range
+            'scale_factor': 10000.0 if args.normalize else None  # For denormalization if needed
         }
     }
     

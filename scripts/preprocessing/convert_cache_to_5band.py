@@ -67,6 +67,115 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
 
+def compute_frame_quality_stats(array: np.ndarray, 
+                                 zero_threshold: float = 0.05,
+                                 outlier_percentile: float = 99.5,
+                                 min_valid_fraction: float = 0.90) -> Dict:
+    """
+    Compute LOCAL quality statistics for a downloaded frame (numpy array).
+    
+    This catches issues that server-side GEE coverage checking might miss:
+    - Pixels filled with 0 from .unmask(0) on cloud/shadow masked areas
+    - NaN values from failed computations
+    - Outlier values indicating atmospheric contamination (haze, thin clouds)
+    
+    Args:
+        array: numpy array (H, W, C) - single frame
+        zero_threshold: threshold below which pixels are considered "zero/bad"
+        outlier_percentile: percentile above which pixels are outliers
+        min_valid_fraction: minimum valid pixel fraction to pass quality check
+    
+    Returns:
+        Dict with quality metrics and pass/fail flag
+    """
+    total_pixels = array.size
+    
+    # Count NaN pixels
+    nan_mask = np.isnan(array)
+    nan_count = np.sum(nan_mask)
+    nan_fraction = nan_count / total_pixels
+    
+    # Count zero/near-zero pixels (from .unmask(0) on masked areas)
+    # Use small threshold to catch near-zeros from interpolation
+    zero_mask = np.abs(array) < zero_threshold
+    zero_count = np.sum(zero_mask & ~nan_mask)  # Don't double-count NaNs
+    zero_fraction = zero_count / total_pixels
+    
+    # Get valid pixels for outlier detection
+    valid_mask = ~nan_mask & ~zero_mask
+    valid_pixels = array[valid_mask]
+    
+    if len(valid_pixels) == 0:
+        # All pixels are bad
+        return {
+            'zero_frac': float(zero_fraction),
+            'nan_frac': float(nan_fraction),
+            'outlier_frac': 0.0,
+            'valid_frac': 0.0,
+            'mean_refl': 0.0,
+            'std_refl': 0.0,
+            'is_good': False
+        }
+    
+    # Detect outliers (extremely high values often indicate atmospheric issues)
+    outlier_threshold = np.percentile(valid_pixels, outlier_percentile)
+    outlier_mask = (array > outlier_threshold) & valid_mask
+    outlier_count = np.sum(outlier_mask)
+    outlier_fraction = outlier_count / total_pixels
+    
+    # Final valid pixels (not nan, not zero, not outlier)
+    final_valid_mask = valid_mask & ~outlier_mask
+    valid_fraction = np.sum(final_valid_mask) / total_pixels
+    
+    # Statistics on valid pixels
+    final_valid_pixels = array[final_valid_mask]
+    mean_refl = float(np.mean(final_valid_pixels)) if len(final_valid_pixels) > 0 else 0.0
+    std_refl = float(np.std(final_valid_pixels)) if len(final_valid_pixels) > 0 else 0.0
+    
+    # Quality decision
+    is_good = valid_fraction >= min_valid_fraction
+    
+    return {
+        'zero_frac': float(zero_fraction),
+        'nan_frac': float(nan_fraction),
+        'outlier_frac': float(outlier_fraction),
+        'valid_frac': float(valid_fraction),
+        'mean_refl': mean_refl,
+        'std_refl': std_refl,
+        'is_good': is_good
+    }
+
+
+def compute_combined_frame_quality(lr_frame: np.ndarray, hr_frame: np.ndarray, 
+                                    frame_idx: int = 0) -> Dict:
+    """
+    Compute combined quality stats for a frame (both LR and HR).
+    
+    Args:
+        lr_frame: LR array (H, W, C)
+        hr_frame: HR array (H, W, C)
+        frame_idx: Frame index for logging
+    
+    Returns:
+        Combined quality dict with both LR and HR stats
+    """
+    lr_stats = compute_frame_quality_stats(lr_frame)
+    hr_stats = compute_frame_quality_stats(hr_frame)
+    
+    return {
+        'frame_idx': frame_idx,
+        'lr_zero_frac': lr_stats['zero_frac'],
+        'lr_nan_frac': lr_stats['nan_frac'],
+        'lr_outlier_frac': lr_stats['outlier_frac'],
+        'lr_valid_frac': lr_stats['valid_frac'],
+        'hr_zero_frac': hr_stats['zero_frac'],
+        'hr_nan_frac': hr_stats['nan_frac'],
+        'hr_outlier_frac': hr_stats['outlier_frac'],
+        'hr_valid_frac': hr_stats['valid_frac'],
+        'is_good': lr_stats['is_good'] and hr_stats['is_good']
+    }
+
+
 @dataclass
 class TrainingSample5Band:
     """Training sample with full 5-band HR data for SuperDove images."""
@@ -235,6 +344,23 @@ def process_cached_tile(npz_path: Path, apply_coregistration: bool = False,
         # This creates proper HR targets for 20m→6m super-resolution
         hr_20m = downsample_hr_for_20m(hr_20m_full, factor=2)  # (128, 128, 1 or 2)
         
+        # Compute frame quality stats (useful for filtering during training)
+        frame_quality = compute_frame_quality_stats(lr_10m)
+        hr_quality = compute_frame_quality_stats(hr_array)
+        
+        # Combined quality (frame is good only if both LR and HR are good)
+        combined_quality = {
+            'lr_zero_frac': frame_quality['zero_frac'],
+            'lr_nan_frac': frame_quality['nan_frac'],
+            'lr_outlier_frac': frame_quality['outlier_frac'],
+            'lr_valid_frac': frame_quality['valid_frac'],
+            'hr_zero_frac': hr_quality['zero_frac'],
+            'hr_nan_frac': hr_quality['nan_frac'],
+            'hr_outlier_frac': hr_quality['outlier_frac'],
+            'hr_valid_frac': hr_quality['valid_frac'],
+            'is_good': frame_quality['is_good'] and hr_quality['is_good']
+        }
+        
         return {
             'hr_full': hr_array,       # Full HR (256, 256, 4 or 5)
             'hr_10m': hr_10m,          # RGB HR (256, 256, 3)
@@ -245,7 +371,8 @@ def process_cached_tile(npz_path: Path, apply_coregistration: bool = False,
             'planet_bands': planet_bands,
             's2_bands': s2_bands,
             'band_mapping': band_mapping,
-            'cache_file': npz_path.name
+            'cache_file': npz_path.name,
+            'frame_quality': combined_quality  # NEW: quality metadata
         }
         
     except Exception as e:
@@ -384,6 +511,13 @@ def create_training_samples_from_cache(
                 if lr_20m_stack is not None:
                     lr_20m_stack = np.clip(lr_20m_stack / scale_factor, 0, 1).astype(np.float32)
             
+            # Collect frame quality for each frame in sequence
+            frame_quality_list = []
+            for frame_idx, tile in enumerate(seq_tiles):
+                fq = tile.get('frame_quality', {})
+                fq['frame_idx'] = frame_idx
+                frame_quality_list.append(fq)
+            
             sample = TrainingSample5Band(
                 lr_sequence=lr_10m_stack,
                 hr_sequence=hr_full_stack,
@@ -395,7 +529,8 @@ def create_training_samples_from_cache(
                 sentinel_bands=seq_tiles[0]['s2_bands'],
                 sequence_id=seq_idx,
                 tile_id=seq_idx,
-                region_name='STA-2'
+                region_name='STA-2',
+                frame_quality=frame_quality_list  # NEW: preserve quality metadata
             )
             tile_samples.append(sample)
             

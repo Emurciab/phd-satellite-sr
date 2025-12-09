@@ -21,7 +21,7 @@ import argparse
 import pickle
 import time
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 import numpy as np
 
 import torch
@@ -31,6 +31,187 @@ from torch.utils.data import Dataset, DataLoader, random_split
 
 # Import model and loss
 from models.satellite_sr_model import MultiResolutionSatelliteSR, SpectralFidelityLoss
+
+
+# =============================================================================
+# EARLY STOPPING
+# =============================================================================
+
+class EarlyStopping:
+    """
+    Early stopping to halt training when validation metrics stop improving.
+    
+    Monitors multiple metrics with configurable patience and minimum delta.
+    Supports both 'min' mode (loss) and 'max' mode (PSNR, SSIM).
+    """
+    
+    def __init__(
+        self,
+        patience: int = 15,
+        min_delta: float = 1e-4,
+        mode: str = 'min',
+        metric_name: str = 'val_loss'
+    ):
+        """
+        Args:
+            patience: Number of epochs to wait for improvement
+            min_delta: Minimum change to qualify as improvement
+            mode: 'min' for loss (lower is better), 'max' for PSNR (higher is better)
+            metric_name: Name of metric for logging
+        """
+        self.patience = patience
+        self.min_delta = min_delta
+        self.mode = mode
+        self.metric_name = metric_name
+        
+        self.best_value = float('inf') if mode == 'min' else float('-inf')
+        self.counter = 0
+        self.best_epoch = 0
+        self.early_stop = False
+        self.history = []
+    
+    def __call__(self, value: float, epoch: int) -> bool:
+        """
+        Check if training should stop.
+        
+        Args:
+            value: Current metric value
+            epoch: Current epoch number
+            
+        Returns:
+            True if training should stop, False otherwise
+        """
+        self.history.append(value)
+        
+        if self.mode == 'min':
+            improved = value < (self.best_value - self.min_delta)
+        else:  # max
+            improved = value > (self.best_value + self.min_delta)
+        
+        if improved:
+            self.best_value = value
+            self.best_epoch = epoch
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        
+        return self.early_stop
+    
+    def status(self) -> str:
+        """Get current status string."""
+        return f"{self.metric_name}: best={self.best_value:.4f} @ epoch {self.best_epoch+1}, patience={self.counter}/{self.patience}"
+
+
+class ConvergenceTracker:
+    """
+    Track multiple metrics for convergence analysis.
+    
+    Provides comprehensive early stopping with multiple criteria:
+    1. Primary: Validation loss
+    2. Secondary: Combined PSNR improvement
+    3. Plateau detection: Check if metrics are stable
+    """
+    
+    def __init__(
+        self,
+        patience_loss: int = 15,
+        patience_psnr: int = 20,
+        min_delta_loss: float = 1e-4,
+        min_delta_psnr: float = 0.1,  # 0.1 dB improvement threshold
+        plateau_window: int = 10,
+        plateau_threshold: float = 0.05  # 5% variation in window
+    ):
+        self.es_loss = EarlyStopping(patience_loss, min_delta_loss, 'min', 'val_loss')
+        self.es_psnr = EarlyStopping(patience_psnr, min_delta_psnr, 'max', 'avg_psnr')
+        
+        self.plateau_window = plateau_window
+        self.plateau_threshold = plateau_threshold
+        
+        self.metrics_history = {
+            'train_loss': [],
+            'val_loss': [],
+            'psnr_10m': [],
+            'psnr_20m': [],
+            'avg_psnr': [],
+        }
+    
+    def update(self, epoch: int, train_loss: float, val_loss: float, 
+               psnr_10m: float, psnr_20m: float) -> Dict:
+        """
+        Update tracker with new epoch metrics.
+        
+        Returns dict with:
+            - should_stop: bool
+            - stop_reason: str or None
+            - status: dict with convergence info
+        """
+        avg_psnr = (psnr_10m + psnr_20m) / 2
+        
+        # Update history
+        self.metrics_history['train_loss'].append(train_loss)
+        self.metrics_history['val_loss'].append(val_loss)
+        self.metrics_history['psnr_10m'].append(psnr_10m)
+        self.metrics_history['psnr_20m'].append(psnr_20m)
+        self.metrics_history['avg_psnr'].append(avg_psnr)
+        
+        # Check early stopping criteria
+        loss_stop = self.es_loss(val_loss, epoch)
+        psnr_stop = self.es_psnr(avg_psnr, epoch)
+        
+        # Check plateau
+        plateau = self._check_plateau()
+        
+        # Determine if should stop
+        should_stop = False
+        stop_reason = None
+        
+        if loss_stop and psnr_stop:
+            should_stop = True
+            stop_reason = "Both loss and PSNR stopped improving"
+        elif plateau and (self.es_loss.counter >= 5 or self.es_psnr.counter >= 5):
+            should_stop = True
+            stop_reason = f"Metrics plateaued (variation < {self.plateau_threshold*100:.1f}%)"
+        
+        return {
+            'should_stop': should_stop,
+            'stop_reason': stop_reason,
+            'status': {
+                'loss': self.es_loss.status(),
+                'psnr': self.es_psnr.status(),
+                'plateau': plateau,
+                'best_loss': self.es_loss.best_value,
+                'best_psnr': self.es_psnr.best_value,
+            }
+        }
+    
+    def _check_plateau(self) -> bool:
+        """Check if metrics have plateaued in recent window."""
+        if len(self.metrics_history['val_loss']) < self.plateau_window:
+            return False
+        
+        # Check last N epochs
+        recent_loss = self.metrics_history['val_loss'][-self.plateau_window:]
+        recent_psnr = self.metrics_history['avg_psnr'][-self.plateau_window:]
+        
+        # Calculate coefficient of variation (std/mean)
+        loss_cv = np.std(recent_loss) / (np.mean(recent_loss) + 1e-8)
+        psnr_cv = np.std(recent_psnr) / (np.mean(recent_psnr) + 1e-8)
+        
+        # Both metrics stable = plateau
+        return loss_cv < self.plateau_threshold and psnr_cv < self.plateau_threshold
+    
+    def get_summary(self) -> str:
+        """Get training summary."""
+        return (
+            f"\nConvergence Summary:\n"
+            f"  Best val_loss: {self.es_loss.best_value:.4f} @ epoch {self.es_loss.best_epoch+1}\n"
+            f"  Best avg_PSNR: {self.es_psnr.best_value:.2f} dB @ epoch {self.es_psnr.best_epoch+1}\n"
+            f"  Total epochs: {len(self.metrics_history['val_loss'])}\n"
+            f"  Loss patience used: {self.es_loss.counter}/{self.es_loss.patience}\n"
+            f"  PSNR patience used: {self.es_psnr.counter}/{self.es_psnr.patience}"
+        )
 
 
 class FiveBandDataset(Dataset):
@@ -47,9 +228,19 @@ class FiveBandDataset(Dataset):
             sequence_length: Number of temporal frames (default 3)
             augment: Whether to apply data augmentation
         """
-        self.samples = samples
+        # Filter out samples with None values
+        self.samples = [s for s in samples if self._is_valid_sample(s)]
         self.sequence_length = sequence_length
         self.augment = augment
+        print(f"FiveBandDataset: {len(self.samples)}/{len(samples)} samples valid (filtered {len(samples) - len(self.samples)} with None values)")
+    
+    @staticmethod
+    def _is_valid_sample(sample):
+        """Check if sample has all required non-None arrays."""
+        return (sample.lr_sequence is not None and 
+                sample.lr_20m_sequence is not None and
+                sample.hr_10m_sequence is not None and
+                sample.hr_20m_sequence is not None)
     
     def __len__(self):
         return len(self.samples)
@@ -366,7 +557,7 @@ def main():
                         default='./data/sr_training/5band_test/superdove_5band',
                         help='Path to 5-band dataset')
     parser.add_argument('--epochs', type=int, default=50,
-                        help='Number of training epochs')
+                        help='Maximum number of training epochs')
     parser.add_argument('--batch-size', type=int, default=4,
                         help='Batch size')
     parser.add_argument('--lr', type=float, default=1e-4,
@@ -380,6 +571,18 @@ def main():
     parser.add_argument('--no-augment', action='store_true',
                         help='Disable data augmentation')
     
+    # Early stopping arguments
+    parser.add_argument('--patience-loss', type=int, default=15,
+                        help='Early stopping patience for validation loss (epochs without improvement)')
+    parser.add_argument('--patience-psnr', type=int, default=20,
+                        help='Early stopping patience for PSNR (epochs without improvement)')
+    parser.add_argument('--min-delta-loss', type=float, default=1e-4,
+                        help='Minimum loss improvement to reset patience')
+    parser.add_argument('--min-delta-psnr', type=float, default=0.1,
+                        help='Minimum PSNR improvement in dB to reset patience')
+    parser.add_argument('--no-early-stop', action='store_true',
+                        help='Disable early stopping (run all epochs)')
+    
     args = parser.parse_args()
     
     print("=" * 80)
@@ -387,11 +590,17 @@ def main():
     print("=" * 80)
     print(f"\nConfiguration:")
     print(f"  Data directory: {args.data_dir}")
-    print(f"  Epochs: {args.epochs}")
+    print(f"  Max epochs: {args.epochs}")
     print(f"  Batch size: {args.batch_size}")
     print(f"  Learning rate: {args.lr}")
     print(f"  Temporal frames: {args.num_frames}")
     print(f"  Augmentation: {not args.no_augment}")
+    print(f"\nEarly Stopping:")
+    if args.no_early_stop:
+        print(f"  DISABLED - will run all {args.epochs} epochs")
+    else:
+        print(f"  Loss patience: {args.patience_loss} epochs (min_delta={args.min_delta_loss})")
+        print(f"  PSNR patience: {args.patience_psnr} epochs (min_delta={args.min_delta_psnr} dB)")
     print("=" * 80)
     
     # Device
@@ -487,12 +696,25 @@ def main():
     save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     
+    # Initialize convergence tracker
+    if not args.no_early_stop:
+        convergence = ConvergenceTracker(
+            patience_loss=args.patience_loss,
+            patience_psnr=args.patience_psnr,
+            min_delta_loss=args.min_delta_loss,
+            min_delta_psnr=args.min_delta_psnr,
+        )
+    else:
+        convergence = None
+    
     # Training loop
     print("\n" + "=" * 80)
     print("TRAINING")
     print("=" * 80)
     
     best_val_loss = float('inf')
+    best_avg_psnr = float('-inf')
+    stopped_early = False
     
     for epoch in range(args.epochs):
         start_time = time.time()
@@ -509,21 +731,23 @@ def main():
         scheduler.step()
         
         epoch_time = time.time() - start_time
+        avg_psnr = (val_metrics['psnr_10m'] + val_metrics['psnr_20m']) / 2
         
         # Print progress
         print(f"\nEpoch {epoch+1}/{args.epochs} ({epoch_time:.1f}s)")
         print(f"  Train Loss: {train_loss:.4f} (10m: {train_loss_10m:.4f}, 20m: {train_loss_20m:.4f})")
         print(f"  Val Loss: {val_metrics['loss']:.4f}")
-        print(f"  PSNR 10m: {val_metrics['psnr_10m']:.2f} dB | PSNR 20m: {val_metrics['psnr_20m']:.2f} dB")
+        print(f"  PSNR 10m: {val_metrics['psnr_10m']:.2f} dB | PSNR 20m: {val_metrics['psnr_20m']:.2f} dB | Avg: {avg_psnr:.2f} dB")
         print(f"  Per-band PSNR (10m): Blue={val_metrics['band_psnr_10m']['Blue']:.2f}, "
               f"Green={val_metrics['band_psnr_10m']['Green']:.2f}, "
               f"Red={val_metrics['band_psnr_10m']['Red']:.2f}")
         print(f"  Per-band PSNR (20m): RedEdge={val_metrics['band_psnr_20m']['RedEdge']:.2f}, "
               f"NIR={val_metrics['band_psnr_20m']['NIR']:.2f}")
         
-        # Save best model
+        # Save best model (based on loss)
         if val_metrics['loss'] < best_val_loss:
             best_val_loss = val_metrics['loss']
+            best_avg_psnr = avg_psnr
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -531,14 +755,47 @@ def main():
                 'val_loss': val_metrics['loss'],
                 'val_psnr_10m': val_metrics['psnr_10m'],
                 'val_psnr_20m': val_metrics['psnr_20m'],
+                'avg_psnr': avg_psnr,
             }, save_dir / 'best_model.pt')
-            print(f"  ✓ Saved best model (loss: {best_val_loss:.4f})")
+            print(f"  ✓ Saved best model (loss: {best_val_loss:.4f}, PSNR: {best_avg_psnr:.2f} dB)")
+        
+        # Check convergence
+        if convergence is not None:
+            conv_result = convergence.update(
+                epoch, train_loss, val_metrics['loss'],
+                val_metrics['psnr_10m'], val_metrics['psnr_20m']
+            )
+            
+            # Print convergence status every 5 epochs
+            if (epoch + 1) % 5 == 0 or conv_result['should_stop']:
+                print(f"  Convergence: {conv_result['status']['loss']}")
+                print(f"              {conv_result['status']['psnr']}")
+            
+            # Check if should stop
+            if conv_result['should_stop']:
+                print(f"\n{'='*80}")
+                print(f"EARLY STOPPING: {conv_result['stop_reason']}")
+                print(f"{'='*80}")
+                stopped_early = True
+                break
     
+    # Training complete
     print("\n" + "=" * 80)
     print("TRAINING COMPLETE")
     print("=" * 80)
-    print(f"Best validation loss: {best_val_loss:.4f}")
-    print(f"Model saved to: {save_dir / 'best_model.pt'}")
+    
+    if stopped_early:
+        print(f"Stopped early at epoch {epoch+1}/{args.epochs}")
+    else:
+        print(f"Completed all {args.epochs} epochs")
+    
+    print(f"\nBest Results:")
+    print(f"  Validation loss: {best_val_loss:.4f}")
+    print(f"  Average PSNR: {best_avg_psnr:.2f} dB")
+    print(f"  Model saved to: {save_dir / 'best_model.pt'}")
+    
+    if convergence is not None:
+        print(convergence.get_summary())
 
 
 if __name__ == '__main__':

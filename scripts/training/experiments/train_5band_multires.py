@@ -320,6 +320,93 @@ class FiveBandDataset(Dataset):
         return lr_10m, lr_20m, hr_10m, hr_20m
 
 
+class FiveBandMmapDataset(Dataset):
+    """Fast memory-mapped dataset for 5-band SuperDove data.
+    
+    Uses pre-cropped numpy memory-mapped files for instant loading.
+    Data format: (N, T, H, W, C) stored as separate .npy files.
+    """
+    
+    def __init__(self, mmap_dir: str, sequence_length: int = 3, augment: bool = True):
+        """
+        Args:
+            mmap_dir: Directory containing mmap .npy files (lr.npy, hr.npy, etc.)
+            sequence_length: Number of temporal frames (default 3)
+            augment: Whether to apply data augmentation
+        """
+        from pathlib import Path
+        mmap_dir = Path(mmap_dir)
+        
+        # Load memory-mapped arrays (instant, no actual data loaded)
+        self.lr = np.load(mmap_dir / 'lr.npy', mmap_mode='r')          # (N, T, 78, 78, 3)
+        self.lr_20m = np.load(mmap_dir / 'lr_20m.npy', mmap_mode='r')  # (N, T, 39, 39, 2)
+        self.hr = np.load(mmap_dir / 'hr.npy', mmap_mode='r')          # (N, T, 260, 260, 5)
+        self.hr_10m = np.load(mmap_dir / 'hr_10m.npy', mmap_mode='r')  # (N, T, 260, 260, 3)
+        self.hr_20m = np.load(mmap_dir / 'hr_20m.npy', mmap_mode='r')  # (N, T, 130, 130, 2)
+        
+        self.n_samples = self.lr.shape[0]
+        self.sequence_length = sequence_length
+        self.augment = augment
+        
+        print(f"FiveBandMmapDataset: {self.n_samples} samples from {mmap_dir}")
+        print(f"  lr: {self.lr.shape}, hr_10m: {self.hr_10m.shape}, hr_20m: {self.hr_20m.shape}")
+    
+    def __len__(self):
+        return self.n_samples
+    
+    def __getitem__(self, idx):
+        # Read from mmap (fast, on-demand)
+        lr_10m = self.lr[idx].copy()           # (T, 78, 78, 3)
+        lr_20m = self.lr_20m[idx].copy()       # (T, 39, 39, 2)
+        hr_10m = self.hr_10m[idx].copy()       # (T, 260, 260, 3)
+        hr_20m = self.hr_20m[idx].copy()       # (T, 130, 130, 2)
+        
+        # Apply augmentation
+        if self.augment:
+            lr_10m, lr_20m, hr_10m, hr_20m = self._augment(lr_10m, lr_20m, hr_10m, hr_20m)
+        
+        # Convert to torch: (T, H, W, C) -> (T, C, H, W)
+        lr_10m = torch.from_numpy(lr_10m).permute(0, 3, 1, 2).float()
+        lr_20m = torch.from_numpy(lr_20m).permute(0, 3, 1, 2).float()
+        
+        # HR targets: use middle frame
+        mid_idx = self.sequence_length // 2
+        hr_10m = torch.from_numpy(hr_10m[mid_idx]).permute(2, 0, 1).float()
+        hr_20m = torch.from_numpy(hr_20m[mid_idx]).permute(2, 0, 1).float()
+        
+        return {
+            'lr_10m': lr_10m,
+            'lr_20m': lr_20m,
+            'hr_10m': hr_10m,
+            'hr_20m': hr_20m,
+        }
+    
+    def _augment(self, lr_10m, lr_20m, hr_10m, hr_20m):
+        """Apply consistent augmentation across all arrays."""
+        import random
+        
+        if random.random() > 0.5:
+            lr_10m = np.flip(lr_10m, axis=2).copy()
+            lr_20m = np.flip(lr_20m, axis=2).copy()
+            hr_10m = np.flip(hr_10m, axis=2).copy()
+            hr_20m = np.flip(hr_20m, axis=2).copy()
+        
+        if random.random() > 0.5:
+            lr_10m = np.flip(lr_10m, axis=1).copy()
+            lr_20m = np.flip(lr_20m, axis=1).copy()
+            hr_10m = np.flip(hr_10m, axis=1).copy()
+            hr_20m = np.flip(hr_20m, axis=1).copy()
+        
+        k = random.randint(0, 3)
+        if k > 0:
+            lr_10m = np.rot90(lr_10m, k, axes=(1, 2)).copy()
+            lr_20m = np.rot90(lr_20m, k, axes=(1, 2)).copy()
+            hr_10m = np.rot90(hr_10m, k, axes=(1, 2)).copy()
+            hr_20m = np.rot90(hr_20m, k, axes=(1, 2)).copy()
+        
+        return lr_10m, lr_20m, hr_10m, hr_20m
+
+
 class MultiResSpectralLoss(nn.Module):
     """
     Combined loss for multi-resolution SR with spectral fidelity.
@@ -328,6 +415,7 @@ class MultiResSpectralLoss(nn.Module):
     - L1 + MSE pixel loss
     - Spectral Angle Mapper (SAM) loss
     - Gradient/edge preservation loss
+    - VGG perceptual loss (NEW)
     
     Applied to both 10m and 20m branches with configurable weights.
     """
@@ -338,7 +426,9 @@ class MultiResSpectralLoss(nn.Module):
         weight_20m: float = 1.0,
         alpha_pixel: float = 1.0,
         alpha_spectral: float = 0.1,
-        alpha_gradient: float = 0.01
+        alpha_gradient: float = 0.01,
+        alpha_perceptual: float = 0.1,
+        use_perceptual: bool = True
     ):
         super().__init__()
         self.weight_10m = weight_10m
@@ -346,10 +436,17 @@ class MultiResSpectralLoss(nn.Module):
         self.alpha_pixel = alpha_pixel
         self.alpha_spectral = alpha_spectral
         self.alpha_gradient = alpha_gradient
+        self.alpha_perceptual = alpha_perceptual
+        self.use_perceptual = use_perceptual
         
         # Base losses
         self.l1_loss = nn.L1Loss()
         self.mse_loss = nn.MSELoss()
+        
+        # VGG Perceptual loss (only for 10m branch which has 3 channels)
+        if use_perceptual:
+            from losses.perceptual_loss import VGGPerceptualLoss
+            self.perceptual_loss = VGGPerceptualLoss()
         
         # Sobel filters for edge detection (registered as buffers for automatic GPU transfer)
         self.register_buffer('sobel_x', torch.tensor([
@@ -401,7 +498,8 @@ class MultiResSpectralLoss(nn.Module):
             edges.append(edge_mag)
         return torch.cat(edges, dim=1)
     
-    def _compute_branch_loss(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def _compute_branch_loss(self, pred: torch.Tensor, target: torch.Tensor, 
+                             use_perceptual_here: bool = False) -> torch.Tensor:
         """Compute full spectral fidelity loss for a single branch."""
         # Pixel loss: L1 + 0.1*MSE
         pixel_loss = self.l1_loss(pred, target) + 0.1 * self.mse_loss(pred, target)
@@ -417,19 +515,25 @@ class MultiResSpectralLoss(nn.Module):
                 self.alpha_spectral * sam_loss + \
                 self.alpha_gradient * grad_loss
         
+        # Perceptual loss (VGG) - only for branches with ≥3 channels
+        if use_perceptual_here and self.use_perceptual and self.alpha_perceptual > 0:
+            perceptual = self.perceptual_loss(pred, target)
+            total = total + self.alpha_perceptual * perceptual
+        
         return total
     
     def forward(self, pred_10m, pred_20m, target_10m, target_20m):
-        # 10m branch loss (full spectral fidelity)
-        loss_10m = self._compute_branch_loss(pred_10m, target_10m)
+        # 10m branch loss (full spectral fidelity + perceptual since it has 3 channels)
+        loss_10m = self._compute_branch_loss(pred_10m, target_10m, use_perceptual_here=True)
         
-        # 20m branch loss (full spectral fidelity)
-        loss_20m = self._compute_branch_loss(pred_20m, target_20m)
+        # 20m branch loss (spectral fidelity only, 2 channels so perceptual less meaningful)
+        loss_20m = self._compute_branch_loss(pred_20m, target_20m, use_perceptual_here=False)
         
         # Combined loss with branch weights
         total_loss = self.weight_10m * loss_10m + self.weight_20m * loss_20m
         
         return total_loss, loss_10m, loss_20m
+
 
 
 def calculate_psnr(pred: torch.Tensor, target: torch.Tensor) -> float:
@@ -582,6 +686,8 @@ def main():
                         help='Minimum PSNR improvement in dB to reset patience')
     parser.add_argument('--no-early-stop', action='store_true',
                         help='Disable early stopping (run all epochs)')
+    parser.add_argument('--mmap', action='store_true',
+                        help='Use memory-mapped numpy files for fast loading (data-dir should point to mmap folder)')
     
     args = parser.parse_args()
     
@@ -613,41 +719,53 @@ def main():
     # Load data
     print(f"\nLoading data from {args.data_dir}...")
     
-    # Need to import the class for unpickling
-    # The pickle was saved with __main__.TrainingSample5Band, so we need to make it available
-    sys.path.insert(0, '/media/eamurciab/TOSHIBA_EXT1/PhD/SR/scripts/preprocessing')
-    from convert_cache_to_5band import TrainingSample5Band
-    
-    # Make the class available under __main__ for pickle to find it
-    import types
-    import __main__
-    __main__.TrainingSample5Band = TrainingSample5Band
-    
-    data_path = Path(args.data_dir) / 'dataset.pkl'
-    with open(data_path, 'rb') as f:
-        data = pickle.load(f)
-    
-    samples = data['samples']
-    metadata = data['metadata']
-    
-    print(f"  Loaded {len(samples)} samples")
-    print(f"  Sensor type: {metadata['sensor_type']}")
-    print(f"  HR bands: {metadata['hr_bands']}")
-    print(f"  Band mapping:")
-    for k, v in metadata['band_mapping'].items():
-        print(f"    {k}: {v}")
-    
-    # Create dataset with temporal sequences (same as train_native_resolution.py)
-    dataset = FiveBandDataset(
-        samples, 
-        sequence_length=args.num_frames,
-        augment=not args.no_augment
-    )
-    
-    # Split into train/val
-    n_val = int(len(dataset) * args.val_split)
-    n_train = len(dataset) - n_val
-    train_dataset, val_dataset = random_split(dataset, [n_train, n_val])
+    if args.mmap:
+        # Fast memory-mapped loading
+        print("  Using memory-mapped files (instant load)...")
+        full_dataset = FiveBandMmapDataset(
+            args.data_dir,
+            sequence_length=args.num_frames,
+            augment=not args.no_augment
+        )
+        
+        # Split into train/val
+        n_val = int(len(full_dataset) * args.val_split)
+        n_train = len(full_dataset) - n_val
+        train_dataset, val_dataset = random_split(full_dataset, [n_train, n_val])
+    else:
+        # Original pickle loading
+        # Need to import the class for unpickling
+        sys.path.insert(0, '/media/eamurciab/TOSHIBA_EXT1/PhD/SR/scripts/preprocessing')
+        from convert_cache_to_5band import TrainingSample5Band
+        
+        # Make the class available under __main__ for pickle to find it
+        import types
+        import __main__
+        __main__.TrainingSample5Band = TrainingSample5Band
+        
+        data_path = Path(args.data_dir) / 'dataset.pkl'
+        with open(data_path, 'rb') as f:
+            data = pickle.load(f)
+        
+        samples = data['samples']
+        metadata = data.get('metadata', {})
+        
+        print(f"  Loaded {len(samples)} samples")
+        if metadata:
+            print(f"  Sensor type: {metadata.get('sensor_type', 'unknown')}")
+            print(f"  HR bands: {metadata.get('hr_bands', 'unknown')}")
+        
+        # Create dataset with temporal sequences
+        full_dataset = FiveBandDataset(
+            samples, 
+            sequence_length=args.num_frames,
+            augment=not args.no_augment
+        )
+        
+        # Split into train/val
+        n_val = int(len(full_dataset) * args.val_split)
+        n_train = len(full_dataset) - n_val
+        train_dataset, val_dataset = random_split(full_dataset, [n_train, n_val])
     
     print(f"\n  Train samples: {n_train}")
     print(f"  Val samples: {n_val}")

@@ -32,6 +32,10 @@ class VGGPerceptualLoss(nn.Module):
         weights: Weights for each layer (default: equal)
         use_input_norm: Whether to normalize inputs to ImageNet stats
         resize_input: Resize input to this size before VGG (None = no resize)
+        input_scale: Scale factor to apply to input before normalization.
+                     Useful for satellite data with low dynamic range (mean ~0.05)
+                     to shift it closer to ImageNet distribution (mean ~0.45).
+                     Recommended: 2.0-3.0 for satellite imagery.
     """
     
     def __init__(
@@ -39,7 +43,8 @@ class VGGPerceptualLoss(nn.Module):
         feature_layers: List[int] = [4, 9, 16],  # relu1_2, relu2_2, relu3_3
         weights: Optional[List[float]] = None,
         use_input_norm: bool = True,
-        resize_input: Optional[int] = None
+        resize_input: Optional[int] = None,
+        input_scale: float = 1.0
     ):
         super().__init__()
         
@@ -47,6 +52,7 @@ class VGGPerceptualLoss(nn.Module):
         self.weights = weights if weights else [1.0] * len(feature_layers)
         self.use_input_norm = use_input_norm
         self.resize_input = resize_input
+        self.input_scale = input_scale
         
         # Load pretrained VGG16 (only need features up to max layer)
         vgg = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
@@ -108,6 +114,12 @@ class VGGPerceptualLoss(nn.Module):
         # Adapt to 3 channels
         pred_3ch = self._adapt_channels(pred)
         target_3ch = self._adapt_channels(target)
+        
+        # Apply input scaling (for satellite data with low dynamic range)
+        # This shifts data closer to ImageNet distribution before normalization
+        if self.input_scale != 1.0:
+            pred_3ch = torch.clamp(pred_3ch * self.input_scale, 0.0, 1.0)
+            target_3ch = torch.clamp(target_3ch * self.input_scale, 0.0, 1.0)
         
         # Optional resize
         if self.resize_input is not None:

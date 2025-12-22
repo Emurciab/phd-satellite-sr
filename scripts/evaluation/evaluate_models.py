@@ -103,13 +103,13 @@ def load_model(checkpoint_path: Path, device: torch.device) -> Tuple[torch.nn.Mo
         # Multi-output temporal model
         if is_direct and is_schedper:
             # SchedPer direct uses inline model from training script
-            from train_multires_temporal_multiOutput_schedPer_direct import MultiOutputTemporalSRDirect as ModelClass
+            from legacy.train_multires_temporal_multiOutput_schedPer_direct import MultiOutputTemporalSRDirect as ModelClass
         elif is_direct:
-            from models.satellite_sr_model_direct import MultiOutputTemporalSRDirect as ModelClass
+            from legacy.models.satellite_sr_model_direct import MultiOutputTemporalSRDirect as ModelClass
         elif is_schedper:
-            from train_multires_temporal_multiOutput_schedPer import MultiOutputTemporalSR as ModelClass
+            from legacy.train_multires_temporal_multiOutput_schedPer import MultiOutputTemporalSR as ModelClass
         else:
-            from train_multires_temporal_multiOutput import MultiOutputTemporalSR as ModelClass
+            from legacy.train_multires_temporal_multiOutput import MultiOutputTemporalSR as ModelClass
         # Add num_temporal_blocks for multioutput
         model_kwargs['num_temporal_blocks'] = 2
         model = ModelClass(**model_kwargs)
@@ -118,33 +118,33 @@ def load_model(checkpoint_path: Path, device: torch.device) -> Tuple[torch.nn.Mo
         if is_direct:
             # Check architecture version for Direct models
             if arch_version == 'old':
-                from models.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
+                from legacy.models.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
             else:
-                from models.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
+                from legacy.models.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
         else:
-            from models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
+            from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
     elif 'median' in model_name or 'bestframe' in model_name:
         # Median and BestFrame models
         if is_direct:
             # Check architecture version for Direct models
             if arch_version == 'old':
-                from models.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
+                from legacy.models.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
             else:
-                from models.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
+                from legacy.models.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
         else:
-            from models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
+            from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
     elif 'gan' in model_name:
         # GAN model - uses V2 generator (residual learning)
-        from models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
+        from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
     elif 'v3' in model_name or 'goodonly' in model_name:
-        from models.satellite_sr_model_v3 import MultiResolutionSatelliteSRv3 as ModelClass
+        from legacy.models.satellite_sr_model_v3 import MultiResolutionSatelliteSRv3 as ModelClass
         model = ModelClass(**model_kwargs)
     else:
         # Default to MultiRes V2
-        from models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
+        from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
     
     # Load weights - handle GAN checkpoint format (generator_state_dict vs model_state_dict)

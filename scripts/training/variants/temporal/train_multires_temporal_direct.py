@@ -175,9 +175,9 @@ class TemporalMultiResLoss(nn.Module):
         self.l1 = nn.L1Loss()
         self.mse = nn.MSELoss()
         
-        # VGG Perceptual loss
+        # VGG Perceptual loss (input_scale=2.5 for satellite data - scales from ~0.05 mean to ~0.125)
         from perceptual_loss import VGGPerceptualLoss
-        self.perceptual_loss = VGGPerceptualLoss()
+        self.perceptual_loss = VGGPerceptualLoss(input_scale=2.5)
         
         self.register_buffer('sobel_x', torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32).view(1, 1, 3, 3))
         self.register_buffer('sobel_y', torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32).view(1, 1, 3, 3))
@@ -580,7 +580,8 @@ Examples:
     cfg['supervise_all_frames'] = not args.no_temporal_supervision
     
     # Use absolute paths relative to project root
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    # From variants/temporal/script.py -> temporal/ -> variants/ -> training/ -> scripts/ -> SR/
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
     FULL_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap'
     FILTERED_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap_filtered'
     CHECKPOINT_BASE = PROJECT_ROOT / 'checkpoints'

@@ -61,9 +61,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, random_split
 
-# Import building blocks from v2 model
-from satellite_sr_model_v2 import (
-    EncoderBranch, SpectralConsistencyModule, ProgressiveUpscaler,
+# Import building blocks from V1 model (satellite_sr_model_direct)
+# V1 uses: MultiScaleEncoder (3x3 DepthwiseSep stem, no per-block skip connections),
+#          heavier ProgressiveUpscaler (ResBlock after each PixelShuffle step),
+#          feedforward SpectralConsistencyModule, minimal SimpleOutputHead (1x1 Conv only)
+from satellite_sr_model_direct import (
+    MultiScaleEncoder, SpectralConsistencyModule, ProgressiveUpscaler,
     SimpleOutputHead, SpectralAngleLoss, CBAM, ResidualBlock
 )
 
@@ -272,13 +275,15 @@ class MultiOutputTemporalSR(nn.Module):
         self.base_channels = base_channels
         
         # ========== ENCODERS (shared across frames) ==========
-        self.encoder_10m = EncoderBranch(
+        # V1 MultiScaleEncoder: DepthwiseSep 3x3 stem, sequential ResBlock+CBAM,
+        # NO per-block skip connections (unlike V2 EncoderBranch)
+        self.encoder_10m = MultiScaleEncoder(
             in_channels=in_channels_10m,
             base_channels=base_channels,
             num_blocks=num_encoder_blocks
         )
         
-        self.encoder_20m = EncoderBranch(
+        self.encoder_20m = MultiScaleEncoder(
             in_channels=in_channels_20m,
             base_channels=base_channels,
             num_blocks=num_encoder_blocks
@@ -1132,13 +1137,13 @@ Examples:
     cfg['num_temporal_blocks'] = args.temporal_blocks
     
     # Paths
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-    FULL_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap'
-    FILTERED_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap_filtered'
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+    FULL_DATA = PROJECT_ROOT / 'data/sr_training/all_stas_combined/mmap_train'
+    FILTERED_DATA = PROJECT_ROOT / 'data/sr_training/all_stas_combined/mmap_train_clean'
     CHECKPOINT_BASE = PROJECT_ROOT / 'checkpoints'
     
-    # Checkpoint name includes key params
-    suffix = f"_t{args.alpha_temporal}"
+    # Checkpoint name includes key params - v1blocks to distinguish from original V2 run
+    suffix = f"_t{args.alpha_temporal}_v1blocks"
     
     results = {}
     

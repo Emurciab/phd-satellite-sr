@@ -42,6 +42,10 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training'))
 sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training' / 'models'))
+sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training' / 'variants' / 'frequency'))
+sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training' / 'variants' / 'GAN'))
+sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training' / 'variants' / 'multioutput_schedper'))
+sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training' / 'variants' / 'ablationstudy'))
 
 
 # =============================================================================
@@ -49,16 +53,57 @@ sys.path.insert(0, str(PROJECT_ROOT / 'scripts' / 'training' / 'models'))
 # =============================================================================
 
 def detect_architecture_version(state_dict: dict) -> str:
-    """Detect if checkpoint uses OLD (QKV+gamma) or NEW (V2-style) TemporalAttention."""
-    has_gamma = any('gamma' in k for k in state_dict.keys())
-    has_frame_encoder = any('frame_encoder' in k for k in state_dict.keys())
+    """
+    Detect checkpoint architecture version based on key patterns.
     
-    if has_gamma:
-        return 'old'
-    elif has_frame_encoder:
+    Architecture versions:
+    - 'freq_residual': Frequency domain SR with residual learning (hf_predictor)
+    - 'freq_direct': Frequency domain SR with direct learning (spectrum_predictor)
+    - 'upscaler_old': Has upscaler_* + gamma (old QKV temporal attn) - variants/bestframe/satellite_sr_model_direct_old.py
+    - 'upscaler': Has upscaler_*, spectral_consistency_*, no gamma (new temporal attn) - variants/*/satellite_sr_model_direct.py
+    - 'decoder': Has decoder_*, fusion_*.attention (legacy/models/satellite_sr_model_direct_old.py)
+    - 'new': Has frame_encoder (legacy/models/satellite_sr_model_direct.py)
+    - 'v2': Standard V2 residual model
+    """
+    keys = list(state_dict.keys())
+    
+    has_upscaler = any('upscaler_10m' in k or 'upscaler_20m' in k for k in keys)
+    has_spectral_consistency = any('spectral_consistency' in k for k in keys)
+    has_decoder = any('decoder_10m' in k or 'decoder_20m' in k for k in keys)
+    has_frame_encoder = any('frame_encoder' in k for k in keys)
+    has_fusion_from = any('fusion_10m_from_20m' in k or 'fusion_20m_from_10m' in k for k in keys)
+    has_gamma = any('gamma' in k for k in keys)
+    
+    # Frequency domain models
+    has_hf_predictor = any('hf_predictor' in k for k in keys)
+    has_spectrum_predictor = any('spectrum_predictor' in k for k in keys)
+    
+    # Frequency Residual model (baseline + HF residuals)
+    if has_hf_predictor:
+        return 'freq_residual'
+    
+    # Frequency Direct model (full spectrum prediction)
+    if has_spectrum_predictor:
+        return 'freq_direct'
+    
+    # Upscaler-style Direct with OLD temporal attention (gamma/QKV)
+    if has_upscaler and has_spectral_consistency and has_gamma:
+        return 'upscaler_old'
+    
+    # Upscaler-style Direct with NEW temporal attention (frame_encoder style)
+    if has_upscaler and has_spectral_consistency and has_fusion_from:
+        return 'upscaler'
+    
+    # Decoder-style with fusion.attention (legacy/models/satellite_sr_model_direct_old.py)
+    if has_decoder and has_gamma:
+        return 'decoder'
+    
+    # New style with frame_encoder (legacy/models/satellite_sr_model_direct.py)
+    if has_frame_encoder:
         return 'new'
-    else:
-        return 'unknown'
+    
+    # Default fallback
+    return 'v2'
 
 
 def load_model(checkpoint_path: Path, device: torch.device) -> Tuple[torch.nn.Module, Dict]:
@@ -99,9 +144,53 @@ def load_model(checkpoint_path: Path, device: torch.device) -> Tuple[torch.nn.Mo
     is_schedper = 'schedper' in model_name
     is_temporal = 'temporal' in model_name and 'multioutput' not in model_name
     
-    if 'multioutput' in model_name:
+    is_learnedups = 'learnedups' in model_name
+    
+    if 'ablation' in model_name:
+        # Ablation study models — all based on LearnedUps architecture
+        config = checkpoint.get('config', {})
+        resize_method = checkpoint.get('resize_method', config.get('resize_method', 'adaptive'))
+        model_kwargs['num_temporal_blocks'] = 2
+        model_kwargs['resize_method'] = resize_method
+
+        if 'no_temporal_no_fusion' in model_name:
+            # Custom subclass with TemporalIdentity + skipped fusion
+            if is_direct:
+                from train_ablation_no_temporal_no_fusion_direct import AblatedNoTemporalNoFusionDirect as ModelClass
+            else:
+                from train_ablation_no_temporal_no_fusion_residual import AblatedNoTemporalNoFusionResidual as ModelClass
+            model = ModelClass(**model_kwargs)
+        elif 'no_se_module' in model_name or 'no_spectral' in model_name:
+            # Full model with SE modules replaced by Identity
+            import torch.nn as nn
+            if is_direct:
+                from train_multires_temporal_multiOutput_schedPer_direct_learnedUps import MultiOutputTemporalSRDirectLearnedUps as ModelClass
+            else:
+                from train_multires_temporal_multiOutput_schedPer_learnedUps import MultiOutputTemporalSRLearnedUps as ModelClass
+            model = ModelClass(**model_kwargs)
+            model.spectral_10m = nn.Identity()
+            model.spectral_20m = nn.Identity()
+        else:
+            # No SAM Loss and other loss-only ablations — same architecture as full model
+            if is_direct:
+                from train_multires_temporal_multiOutput_schedPer_direct_learnedUps import MultiOutputTemporalSRDirectLearnedUps as ModelClass
+            else:
+                from train_multires_temporal_multiOutput_schedPer_learnedUps import MultiOutputTemporalSRLearnedUps as ModelClass
+            model = ModelClass(**model_kwargs)
+    elif 'multioutput' in model_name:
         # Multi-output temporal model
-        if is_direct and is_schedper:
+        if is_learnedups:
+            # Learned upscaling variants (adaptive/meta resize methods)
+            config = checkpoint.get('config', {})
+            resize_method = checkpoint.get('resize_method', config.get('resize_method', 'adaptive'))
+            model_kwargs['num_temporal_blocks'] = 2
+            model_kwargs['resize_method'] = resize_method
+            if is_direct:
+                from train_multires_temporal_multiOutput_schedPer_direct_learnedUps import MultiOutputTemporalSRDirectLearnedUps as ModelClass
+            else:
+                from train_multires_temporal_multiOutput_schedPer_learnedUps import MultiOutputTemporalSRLearnedUps as ModelClass
+            model = ModelClass(**model_kwargs)
+        elif is_direct and is_schedper:
             # SchedPer direct uses inline model from training script
             from legacy.train_multires_temporal_multiOutput_schedPer_direct import MultiOutputTemporalSRDirect as ModelClass
         elif is_direct:
@@ -110,25 +199,45 @@ def load_model(checkpoint_path: Path, device: torch.device) -> Tuple[torch.nn.Mo
             from legacy.train_multires_temporal_multiOutput_schedPer import MultiOutputTemporalSR as ModelClass
         else:
             from legacy.train_multires_temporal_multiOutput import MultiOutputTemporalSR as ModelClass
-        # Add num_temporal_blocks for multioutput
-        model_kwargs['num_temporal_blocks'] = 2
-        model = ModelClass(**model_kwargs)
+        # Add num_temporal_blocks for multioutput (if not already set by learnedups)
+        if 'num_temporal_blocks' not in model_kwargs:
+            model_kwargs['num_temporal_blocks'] = 2
+        if not is_learnedups:
+            model = ModelClass(**model_kwargs)
     elif is_temporal:
         # Temporal supervision model (supervises all frames, not multioutput)
         if is_direct:
             # Check architecture version for Direct models
-            if arch_version == 'old':
+            if arch_version == 'upscaler':
+                # Uses variants/temporal/satellite_sr_model_direct.py style
+                from variants.temporal.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
+            elif arch_version == 'decoder':
                 from legacy.models.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
             else:
                 from legacy.models.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
         else:
             from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
+    elif 'freq' in model_name:
+        # Frequency domain models
+        if arch_version == 'freq_residual' or 'residual' in model_name:
+            # Frequency Residual model (bilinear baseline + learned HF)
+            from variants.frequency.satellite_sr_model_freq_residual import FrequencyDomainSRResidual as ModelClass
+        else:
+            # Frequency Direct model (full spectrum prediction)
+            from variants.frequency.satellite_sr_model_freq_direct import FrequencyDomainSRDirect as ModelClass
+        model = ModelClass(**model_kwargs)
     elif 'median' in model_name or 'bestframe' in model_name:
         # Median and BestFrame models
         if is_direct:
             # Check architecture version for Direct models
-            if arch_version == 'old':
+            if arch_version == 'upscaler_old':
+                # OLD: upscaler + gamma/QKV temporal attention
+                from variants.bestframe.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
+            elif arch_version == 'upscaler':
+                # NEW: upscaler + frame_encoder temporal attention
+                from variants.bestframe.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
+            elif arch_version == 'decoder':
                 from legacy.models.satellite_sr_model_direct_old import MultiResolutionSatelliteSRDirect as ModelClass
             else:
                 from legacy.models.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
@@ -136,8 +245,16 @@ def load_model(checkpoint_path: Path, device: torch.device) -> Tuple[torch.nn.Mo
             from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
     elif 'gan' in model_name:
-        # GAN model - uses V2 generator (residual learning)
-        from legacy.models.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
+        # GAN models - both use models from variants/GAN folder
+        # Check model_type in checkpoint to determine architecture
+        model_type = checkpoint.get('model_type', '')
+        is_direct = 'direct' in model_name or model_type == 'gan_direct'
+        if is_direct:
+            # GAN Direct uses satellite_sr_model_direct from GAN variants
+            from variants.GAN.satellite_sr_model_direct import MultiResolutionSatelliteSRDirect as ModelClass
+        else:
+            # GAN Residual uses satellite_sr_model_v2 from GAN variants (has stem encoder)
+            from variants.GAN.satellite_sr_model_v2 import MultiResolutionSatelliteSRv2 as ModelClass
         model = ModelClass(**model_kwargs)
     elif 'v3' in model_name or 'goodonly' in model_name:
         from legacy.models.satellite_sr_model_v3 import MultiResolutionSatelliteSRv3 as ModelClass
@@ -349,9 +466,10 @@ def compute_per_band_metrics(pred: np.ndarray, target: np.ndarray) -> Dict[str, 
 class TestDataLoader:
     """Load test data from mmap format."""
     
-    def __init__(self, test_dir: Path, sequence_length: int = 3):
+    def __init__(self, test_dir: Path, sequence_length: int = 3, skip_indices: List[int] = None):
         self.test_dir = Path(test_dir)
         self.sequence_length = sequence_length
+        self.skip_indices = set(skip_indices) if skip_indices else set()
         
         # Load mmap arrays
         self.lr_10m = np.load(self.test_dir / 'lr.npy', mmap_mode='r')
@@ -359,17 +477,26 @@ class TestDataLoader:
         self.hr_10m = np.load(self.test_dir / 'hr_10m.npy', mmap_mode='r')
         self.hr_20m = np.load(self.test_dir / 'hr_20m.npy', mmap_mode='r')
         
-        self.n_samples = self.lr_10m.shape[0]
+        # Create valid indices list (excluding bad samples)
+        total_samples = self.lr_10m.shape[0]
+        self.valid_indices = [i for i in range(total_samples) if i not in self.skip_indices]
+        self.n_samples = len(self.valid_indices)
+        
+        if self.skip_indices:
+            print(f"  Skipping {len(self.skip_indices)} bad samples: {sorted(self.skip_indices)}")
+            print(f"  Using {self.n_samples} valid samples out of {total_samples}")
     
     def __len__(self):
         return self.n_samples
     
     def get_sample(self, idx: int) -> Dict[str, np.ndarray]:
-        """Get a single sample by index."""
-        lr_10m = np.array(self.lr_10m[idx])
-        lr_20m = np.array(self.lr_20m[idx])
-        hr_10m = np.array(self.hr_10m[idx])
-        hr_20m = np.array(self.hr_20m[idx])
+        """Get a single sample by index (maps to valid indices)."""
+        actual_idx = self.valid_indices[idx]
+        
+        lr_10m = np.array(self.lr_10m[actual_idx])
+        lr_20m = np.array(self.lr_20m[actual_idx])
+        hr_10m = np.array(self.hr_10m[actual_idx])
+        hr_20m = np.array(self.hr_20m[actual_idx])
         
         mid_idx = self.sequence_length // 2
         
@@ -463,8 +590,9 @@ class ModelEvaluator:
     METRIC_NAMES = ['psnr', 'ssim', 'scc', 'rmse', 'ergas', 'sid']
     HIGHER_BETTER = ['psnr', 'ssim', 'scc']  # For these, higher is better
     
-    def __init__(self, test_dir: Path, output_dir: Path, device: Optional[torch.device] = None):
-        self.test_data = TestDataLoader(test_dir)
+    def __init__(self, test_dir: Path, output_dir: Path, device: Optional[torch.device] = None,
+                 skip_indices: List[int] = None):
+        self.test_data = TestDataLoader(test_dir, skip_indices=skip_indices)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.device = device or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -549,25 +677,27 @@ class ModelEvaluator:
             # Aggregate 10m metrics
             result['stats_10m'] = {}
             for metric in self.METRIC_NAMES:
-                values = [s[metric] for s in result['per_sample_10m']]
+                values = np.array([s[metric] for s in result['per_sample_10m']])
+                valid_count = np.sum(~np.isnan(values))
                 result['stats_10m'][metric] = {
-                    'mean': np.mean(values),
-                    'std': np.std(values),
-                    'min': np.min(values),
-                    'max': np.max(values),
-                    'ci95': 1.96 * np.std(values) / np.sqrt(len(values))
+                    'mean': float(np.nanmean(values)),
+                    'std': float(np.nanstd(values)),
+                    'min': float(np.nanmin(values)) if valid_count > 0 else 0.0,
+                    'max': float(np.nanmax(values)) if valid_count > 0 else 0.0,
+                    'ci95': float(1.96 * np.nanstd(values) / np.sqrt(valid_count)) if valid_count > 0 else 0.0
                 }
             
             # Aggregate 20m metrics
             result['stats_20m'] = {}
             for metric in self.METRIC_NAMES:
-                values = [s[metric] for s in result['per_sample_20m']]
+                values = np.array([s[metric] for s in result['per_sample_20m']])
+                valid_count = np.sum(~np.isnan(values))
                 result['stats_20m'][metric] = {
-                    'mean': np.mean(values),
-                    'std': np.std(values),
-                    'min': np.min(values),
-                    'max': np.max(values),
-                    'ci95': 1.96 * np.std(values) / np.sqrt(len(values))
+                    'mean': float(np.nanmean(values)),
+                    'std': float(np.nanstd(values)),
+                    'min': float(np.nanmin(values)) if valid_count > 0 else 0.0,
+                    'max': float(np.nanmax(values)) if valid_count > 0 else 0.0,
+                    'ci95': float(1.96 * np.nanstd(values) / np.sqrt(valid_count)) if valid_count > 0 else 0.0
                 }
             
             # Combined metrics (average of 10m and 20m)
@@ -578,9 +708,20 @@ class ModelEvaluator:
                 std_10m = result['stats_10m'][metric]['std']
                 std_20m = result['stats_20m'][metric]['std']
                 
+                # Handle NaN values in combined metrics
+                if np.isnan(mean_10m) or np.isnan(mean_20m):
+                    combined_mean = np.nanmean([mean_10m, mean_20m])
+                else:
+                    combined_mean = (mean_10m + mean_20m) / 2
+                    
+                if np.isnan(std_10m) or np.isnan(std_20m):
+                    combined_std = np.nanmean([std_10m, std_20m])
+                else:
+                    combined_std = np.sqrt((std_10m**2 + std_20m**2) / 2)
+                
                 result['stats_combined'][metric] = {
-                    'mean': (mean_10m + mean_20m) / 2,
-                    'std': np.sqrt((std_10m**2 + std_20m**2) / 2),
+                    'mean': float(combined_mean) if not np.isnan(combined_mean) else 0.0,
+                    'std': float(combined_std) if not np.isnan(combined_std) else 0.0,
                 }
             
             # Aggregate per-band metrics
@@ -589,10 +730,10 @@ class ModelEvaluator:
                 for band_name, samples in result['per_sample_band'].items():
                     result['stats_per_band'][band_name] = {}
                     for metric in ['psnr', 'ssim', 'scc', 'rmse']:
-                        values = [s[metric] for s in samples]
+                        values = np.array([s[metric] for s in samples])
                         result['stats_per_band'][band_name][metric] = {
-                            'mean': np.mean(values),
-                            'std': np.std(values),
+                            'mean': float(np.nanmean(values)),
+                            'std': float(np.nanstd(values)),
                         }
     
     def get_summary_table(self) -> pd.DataFrame:
@@ -838,11 +979,23 @@ class ModelEvaluator:
                 'stats_combined': self._convert_to_serializable(result['stats_combined']),
             }
         
-        # Save JSON
+        # Save JSON (summary stats)
         json_path = self.output_dir / f"{filename}.json"
         with open(json_path, 'w') as f:
             json.dump(serializable, f, indent=2)
         print(f"\nSaved JSON results to: {json_path}")
+        
+        # Save per-sample metrics for violin plots etc.
+        per_sample = {}
+        for name, result in self.results.items():
+            per_sample[name] = {
+                'per_sample_10m': self._convert_to_serializable(result.get('per_sample_10m', [])),
+                'per_sample_20m': self._convert_to_serializable(result.get('per_sample_20m', [])),
+            }
+        per_sample_path = self.output_dir / f"{filename}_per_sample.json"
+        with open(per_sample_path, 'w') as f:
+            json.dump(per_sample, f)
+        print(f"Saved per-sample JSON to: {per_sample_path}")
         
         # Save CSV
         df = self.get_summary_table()
@@ -889,9 +1042,9 @@ def create_false_color(bands_10m: np.ndarray, bands_20m: np.ndarray) -> np.ndarr
 class ResultVisualizer:
     """Generate visualizations for evaluation results."""
     
-    def __init__(self, evaluator: ModelEvaluator):
+    def __init__(self, evaluator: ModelEvaluator, viz_subdir: str = 'visualizations'):
         self.evaluator = evaluator
-        self.output_dir = evaluator.output_dir / 'visualizations'
+        self.output_dir = evaluator.output_dir / viz_subdir
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
     def plot_metrics_comparison(self, save: bool = True) -> plt.Figure:
@@ -986,6 +1139,7 @@ class ResultVisualizer:
         
         # Compute improvements
         improvements = np.zeros((len(model_names), len(self.evaluator.METRIC_NAMES)))
+        pct_improvements = np.zeros((len(model_names), len(self.evaluator.METRIC_NAMES)))
         
         for i, name in enumerate(model_names):
             result = self.evaluator.results[name]
@@ -995,26 +1149,36 @@ class ResultVisualizer:
                 
                 if metric in self.evaluator.HIGHER_BETTER:
                     improvements[i, j] = val - bil_val
+                    pct_improvements[i, j] = ((val - bil_val) / (abs(bil_val) + 1e-10)) * 100
                 else:
                     improvements[i, j] = bil_val - val  # Flip sign for lower-is-better
+                    pct_improvements[i, j] = ((bil_val - val) / (abs(bil_val) + 1e-10)) * 100
         
-        fig, ax = plt.subplots(figsize=(12, max(4, len(model_names) * 0.8)))
+        # Rank models by mean improvement across all metrics (best first)
+        mean_improvement = improvements.mean(axis=1)
+        rank_order = np.argsort(mean_improvement)[::-1]  # descending
+        improvements = improvements[rank_order]
+        pct_improvements = pct_improvements[rank_order]
+        model_names = [model_names[i] for i in rank_order]
+        
+        fig, ax = plt.subplots(figsize=(14, max(4, len(model_names) * 0.9)))
         
         im = ax.imshow(improvements, cmap='RdYlGn', aspect='auto')
         
         ax.set_xticks(np.arange(len(self.evaluator.METRIC_NAMES)))
         ax.set_yticks(np.arange(len(model_names)))
-        ax.set_xticklabels([m.upper() for m in self.evaluator.METRIC_NAMES])
-        ax.set_yticklabels(model_names)
+        ax.set_xticklabels([m.upper() for m in self.evaluator.METRIC_NAMES], fontsize=12)
+        ax.set_yticklabels([f'#{i+1}  {name}' for i, name in enumerate(model_names)], fontsize=11)
         
-        # Add text annotations
+        # Add text annotations with absolute value and percentage
         for i in range(len(model_names)):
             for j in range(len(self.evaluator.METRIC_NAMES)):
                 val = improvements[i, j]
-                text = ax.text(j, i, f'{val:+.3f}',
-                              ha='center', va='center', color='black', fontsize=9)
+                pct = pct_improvements[i, j]
+                text = ax.text(j, i, f'{val:+.3f}\n({pct:+.1f}%)',
+                              ha='center', va='center', color='black', fontsize=11, fontweight='bold')
         
-        ax.set_title('Improvement over Bilinear Baseline\n(Green = Better, Red = Worse)')
+        ax.set_title('Improvement over Bilinear Baseline — Ranked by Mean Improvement (Best → Worst)\n(Green = Better, Red = Worse)', fontsize=13)
         fig.colorbar(im, ax=ax, label='Improvement')
         
         plt.tight_layout()
@@ -1100,8 +1264,19 @@ class ResultVisualizer:
             
             plt.close(fig)
     
-    def generate_all_visualizations(self, n_samples: int = 5):
-        """Generate all visualizations."""
+    def generate_all_visualizations(self, n_samples: int = 20,
+                                     filter_best_samples: bool = False,
+                                     filter_psnr_threshold: float = 2.0,
+                                     filter_ref_models: list = None):
+        """Generate all visualizations.
+        
+        Args:
+            n_samples: Number of sample comparisons to plot.
+            filter_best_samples: If True, only plot samples where reference models
+                                 beat Bilinear by >= filter_psnr_threshold dB PSNR.
+            filter_psnr_threshold: PSNR threshold (dB) above Bilinear.
+            filter_ref_models: Model names to check. Default: SchedPer Adaptive variants.
+        """
         print("\nGenerating visualizations...")
         
         # Metric plots
@@ -1110,13 +1285,50 @@ class ResultVisualizer:
         self.plot_improvement_heatmap()
         
         # Sample comparisons
-        n_test = len(self.evaluator.test_data)
-        np.random.seed(42)
-        sample_indices = np.random.choice(n_test, min(n_samples, n_test), replace=False).tolist()
-        self.plot_sample_comparison(sample_indices)
+        if filter_best_samples:
+            sample_indices = self._select_best_samples(
+                filter_psnr_threshold, filter_ref_models)
+            self.plot_sample_comparison(sample_indices)
+        elif n_samples > 0:
+            n_test = len(self.evaluator.test_data)
+            np.random.seed(42)
+            sample_indices = np.random.choice(
+                n_test, min(n_samples, n_test), replace=False).tolist()
+            self.plot_sample_comparison(sample_indices)
         
         plt.close('all')
         print(f"\nAll visualizations saved to: {self.output_dir}")
+    
+    def _select_best_samples(self, psnr_threshold: float = 2.0,
+                             ref_models: list = None) -> List[int]:
+        """Select ALL sample indices where reference models beat Bilinear by >= threshold dB."""
+        if 'Bilinear' not in self.evaluator.results:
+            print("WARNING: No Bilinear baseline, cannot filter.")
+            return []
+        
+        if ref_models is None:
+            ref_models = ['SchedPer Adaptive (Residual)', 'SchedPer Adaptive (Direct)']
+        
+        available_refs = [m for m in ref_models if m in self.evaluator.results]
+        if not available_refs:
+            print(f"WARNING: None of {ref_models} found in results.")
+            return []
+        
+        bilinear_psnr = np.array(
+            [s['psnr'] for s in self.evaluator.results['Bilinear']['per_sample_10m']])
+        n_total = len(bilinear_psnr)
+        
+        # Keep samples where ANY reference model beats Bilinear by >= threshold
+        keep_mask = np.zeros(n_total, dtype=bool)
+        for ref_name in available_refs:
+            ref_psnr = np.array(
+                [s['psnr'] for s in self.evaluator.results[ref_name]['per_sample_10m']])
+            keep_mask |= (ref_psnr - bilinear_psnr) >= psnr_threshold
+        
+        eligible = np.where(keep_mask)[0].tolist()
+        print(f"Best-sample filter: plotting {len(eligible)}/{n_total} samples where "
+              f"{available_refs} >= {psnr_threshold} dB above Bilinear (10m PSNR)")
+        return eligible
 
 
 # =============================================================================
@@ -1169,22 +1381,57 @@ Examples:
     parser.add_argument('--no_viz', action='store_true',
                         help='Skip visualization generation')
     
+    parser.add_argument('--viz_subdir', type=str, default='visualizations',
+                        help='Subdirectory name for visualizations (default: visualizations)')
+    
+    parser.add_argument('--filter_best_samples', action='store_true',
+                        help='Filter to samples where SchedPer Adaptive models beat Bilinear by --filter_psnr_threshold dB')
+    
+    parser.add_argument('--filter_psnr_threshold', type=float, default=2.0,
+                        help='PSNR threshold (dB) above Bilinear for sample filtering (default: 2.0)')
+    
+    parser.add_argument('--filter_ref_models', nargs='+', type=str, default=None,
+                        help='Reference model names for filtering (default: SchedPer Adaptive Residual/Direct)')
+    
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     
+    # If config file provided, override test_dir and output_dir if specified in config
+    test_dir = args.test_dir
+    output_dir = args.output_dir
+    if args.config:
+        with open(args.config, 'r') as f:
+            config = json.load(f)
+        if 'test_dir' in config:
+            config_test_dir = Path(config['test_dir'])
+            if not config_test_dir.is_absolute():
+                config_test_dir = PROJECT_ROOT / config_test_dir
+            test_dir = str(config_test_dir)
+        if 'output_dir' in config:
+            config_output_dir = Path(config['output_dir'])
+            if not config_output_dir.is_absolute():
+                config_output_dir = PROJECT_ROOT / config_output_dir
+            output_dir = str(config_output_dir)
+    
+    # Get skip_indices from config if available
+    skip_indices = config.get('skip_indices', []) if args.config else []
+    
     print("=" * 70)
     print("MULTI-MODEL SR EVALUATION")
     print("=" * 70)
-    print(f"Test data: {args.test_dir}")
-    print(f"Output dir: {args.output_dir}")
+    print(f"Test data: {test_dir}")
+    print(f"Output dir: {output_dir}")
+    if skip_indices:
+        print(f"Skipping {len(skip_indices)} bad samples: {skip_indices}")
     
     # Initialize evaluator
     evaluator = ModelEvaluator(
-        test_dir=Path(args.test_dir),
-        output_dir=Path(args.output_dir)
+        test_dir=Path(test_dir),
+        output_dir=Path(output_dir),
+        skip_indices=skip_indices
     )
     
     # Add bilinear baseline
@@ -1193,13 +1440,16 @@ def main():
     
     # Load models from config or CLI args
     if args.config:
-        with open(args.config, 'r') as f:
-            config = json.load(f)
+        # Config already loaded above
         for model_def in config['models']:
             # Skip entries with null checkpoint (e.g., bilinear baseline)
             if model_def['checkpoint'] is None:
                 continue
-            evaluator.add_model(model_def['name'], Path(model_def['checkpoint']))
+            # Convert relative paths to absolute paths from PROJECT_ROOT
+            checkpoint_path = Path(model_def['checkpoint'])
+            if not checkpoint_path.is_absolute():
+                checkpoint_path = PROJECT_ROOT / checkpoint_path
+            evaluator.add_model(model_def['name'], checkpoint_path)
     elif args.models and args.checkpoints:
         if len(args.models) != len(args.checkpoints):
             raise ValueError("Number of models must match number of checkpoints")
@@ -1209,6 +1459,7 @@ def main():
         # Default: load common models from checkpoints directory
         checkpoints_dir = PROJECT_ROOT / 'checkpoints'
         default_models = [
+            # Residual learning models
             ('MultiRes (Full)', checkpoints_dir / 'multires_perceptual_full' / 'best_model.pt'),
             ('MultiRes (Filtered)', checkpoints_dir / 'multires_perceptual_filtered' / 'best_model.pt'),
             ('V3 (Full)', checkpoints_dir / '5band_v3_perceptual_full' / 'best_model.pt'),
@@ -1217,6 +1468,14 @@ def main():
             ('Median (Full)', checkpoints_dir / 'multires_median_median_full' / 'best_model.pt'),
             ('MultiOutput (Full)', checkpoints_dir / 'multires_multioutput_t0.5_full' / 'best_model.pt'),
             ('MultiOutput SchedPer (Full)', checkpoints_dir / 'multires_multioutput_schedPer_t0.5_full' / 'best_model.pt'),
+            # GAN model
+            ('GAN (Full)', checkpoints_dir / 'multires_GAN_full' / 'best_model.pt'),
+            # Direct learning models (no bilinear baseline)
+            ('Temporal Direct (Full)', checkpoints_dir / 'multires_temporal_direct_full' / 'best_model.pt'),
+            ('BestFrame Direct (Full)', checkpoints_dir / 'multires_bestframe_combined_direct_full' / 'best_model.pt'),
+            ('Median Direct (Full)', checkpoints_dir / 'multires_median_median_direct_full' / 'best_model.pt'),
+            ('MultiOutput Direct (Full)', checkpoints_dir / 'multires_multioutput_t0.5_direct_full' / 'best_model.pt'),
+            ('MultiOutput SchedPer Direct (Full)', checkpoints_dir / 'multires_multioutput_schedPer_t0.5_direct_full' / 'best_model.pt'),
         ]
         
         for name, path in default_models:
@@ -1241,8 +1500,13 @@ def main():
     
     # Generate visualizations
     if not args.no_viz:
-        visualizer = ResultVisualizer(evaluator)
-        visualizer.generate_all_visualizations(n_samples=args.n_vis_samples)
+        visualizer = ResultVisualizer(evaluator, viz_subdir=args.viz_subdir)
+        visualizer.generate_all_visualizations(
+            n_samples=args.n_vis_samples,
+            filter_best_samples=args.filter_best_samples,
+            filter_psnr_threshold=args.filter_psnr_threshold,
+            filter_ref_models=args.filter_ref_models,
+        )
     
     print("\n" + "=" * 70)
     print("EVALUATION COMPLETE")

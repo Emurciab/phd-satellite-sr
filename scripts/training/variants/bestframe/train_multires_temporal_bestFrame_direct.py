@@ -880,7 +880,7 @@ Examples:
     cfg['use_temporal_context'] = not args.no_temporal_context
     
     # Paths
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
     FULL_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap'
     FILTERED_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap_filtered'
     CHECKPOINT_BASE = PROJECT_ROOT / 'checkpoints'

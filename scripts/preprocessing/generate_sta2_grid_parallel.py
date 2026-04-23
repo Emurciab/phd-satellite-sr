@@ -1299,14 +1299,12 @@ def process_tile(tile_info):
                 cache_path=cache_path_harm
             )
             
-            # Use 10m bands as main lr_array
+            # NOTE: LR and HR have DIFFERENT band counts in 8-band mode:
+            # - HR: 5 bands (B2, B4, B6, B7, B8)
+            # - LR 10m: 3 bands (B2, B3, B4)
+            # - LR 20m: 2 bands (B5, B8A)
+            # We keep all bands - no truncation! The model handles different input/output channels.
             lr_array = lr_array_10m
-            
-            # Ensure matching bands between HR and 10m LR
-            if lr_array.shape[-1] != hr_array.shape[-1]:
-                min_bands = min(lr_array.shape[-1], hr_array.shape[-1])
-                lr_array = lr_array[:, :, :min_bands]
-                hr_array = hr_array[:, :, :min_bands]
             
             # Store 20m bands separately (will be saved in sample)
             lr_20m_frames.append(lr_array_20m)

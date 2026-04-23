@@ -306,12 +306,29 @@ class ProgressiveUpscaler(nn.Module):
 
 class SimpleOutputHead(nn.Module):
     """
-    Simple output head with soft clamping.
-    NO SIGMOID (causes mode collapse).
+    Simple output head with proper initialization for direct learning.
+    
+    Key improvements:
+    1. Initialize as near-identity to preserve signal initially
+    2. Bias initialized to expected satellite data mean (~0.05)
+    3. Soft clamping to [0, 1] range
     """
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, init_bias=0.05):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, 1)
+        
+        # Initialize for direct learning stability
+        self._init_weights(init_bias)
+    
+    def _init_weights(self, init_bias):
+        """Initialize weights to approximate identity, bias to data mean."""
+        with torch.no_grad():
+            # Small weights - don't amplify or suppress too much initially
+            nn.init.xavier_uniform_(self.conv.weight, gain=0.1)
+            
+            # Bias initialized to expected output mean (satellite data ~0.05)
+            if self.conv.bias is not None:
+                nn.init.constant_(self.conv.bias, init_bias)
     
     def forward(self, x):
         x = self.conv(x)
@@ -399,9 +416,38 @@ class MultiResolutionSatelliteSRDirect(nn.Module):
         )
         
         # ========== OUTPUT HEADS ==========
-        self.output_head_10m = SimpleOutputHead(in_channels_10m, in_channels_10m)
-        self.output_head_20m = SimpleOutputHead(in_channels_20m, in_channels_20m)
+        self.output_head_10m = SimpleOutputHead(in_channels_10m, in_channels_10m, init_bias=0.05)
+        self.output_head_20m = SimpleOutputHead(in_channels_20m, in_channels_20m, init_bias=0.05)
+        
+        # Initialize weights for stable direct learning
+        self._init_direct_learning_weights()
     
+    def _init_direct_learning_weights(self):
+        """
+        Initialize weights specifically for direct learning stability.
+        
+        Key insight: Direct learning needs the output to start close to 
+        the expected data range (~0.05 mean for satellite data).
+        """
+        # Initialize final refinement layers to near-zero (start with identity)
+        for refine_block in [self.final_refine_10m, self.final_refine_20m]:
+            for module in refine_block.modules():
+                if isinstance(module, nn.Conv2d):
+                    # Very small weights so refinement starts near zero
+                    nn.init.xavier_uniform_(module.weight, gain=0.01)
+                    if module.bias is not None:
+                        nn.init.zeros_(module.bias)
+        
+        # Initialize upscaler final conv layers with controlled scale
+        for upscaler in [self.upscaler_10m, self.upscaler_20m]:
+            for name, module in upscaler.named_modules():
+                if isinstance(module, nn.Conv2d):
+                    # Use smaller gain for output-producing layers
+                    if module.out_channels <= 3:  # Output channels (RGB or 2-band)
+                        nn.init.xavier_uniform_(module.weight, gain=0.1)
+                        if module.bias is not None:
+                            nn.init.constant_(module.bias, 0.05)  # Start at data mean
+
     def forward(
         self,
         lr_10m: torch.Tensor,
@@ -773,8 +819,30 @@ class MultiOutputTemporalSRDirect(nn.Module):
         )
         
         # ========== OUTPUT HEADS ==========
-        self.output_head_10m = SimpleOutputHead(in_channels_10m, in_channels_10m)
-        self.output_head_20m = SimpleOutputHead(in_channels_20m, in_channels_20m)
+        self.output_head_10m = SimpleOutputHead(in_channels_10m, in_channels_10m, init_bias=0.05)
+        self.output_head_20m = SimpleOutputHead(in_channels_20m, in_channels_20m, init_bias=0.05)
+        
+        # Initialize weights for stable direct learning
+        self._init_direct_learning_weights()
+    
+    def _init_direct_learning_weights(self):
+        """Initialize weights specifically for direct learning stability."""
+        # Initialize final refinement layers to near-zero (start with identity)
+        for refine_block in [self.final_refine_10m, self.final_refine_20m]:
+            for module in refine_block.modules():
+                if isinstance(module, nn.Conv2d):
+                    nn.init.xavier_uniform_(module.weight, gain=0.01)
+                    if module.bias is not None:
+                        nn.init.zeros_(module.bias)
+        
+        # Initialize upscaler final conv layers with controlled scale
+        for upscaler in [self.upscaler_10m, self.upscaler_20m]:
+            for name, module in upscaler.named_modules():
+                if isinstance(module, nn.Conv2d):
+                    if module.out_channels <= 3:
+                        nn.init.xavier_uniform_(module.weight, gain=0.1)
+                        if module.bias is not None:
+                            nn.init.constant_(module.bias, 0.05)
         
     def forward(
         self,

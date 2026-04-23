@@ -556,7 +556,7 @@ def main():
     cfg['supervise_all_frames'] = not args.no_temporal_supervision
     
     # Use absolute paths relative to project root
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
     FULL_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap'
     FILTERED_DATA = PROJECT_ROOT / 'data/sr_training/5band_v3/combined/mmap_filtered'
     CHECKPOINT_BASE = PROJECT_ROOT / 'checkpoints'

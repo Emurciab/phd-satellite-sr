@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Visualize 5-Band Super-Resolution Results from Both Models
+Visualize 5-Band Super-Resolution Results
 
 Compares:
-1. Multi-Resolution model (10m→3m at 256×256, 20m→6m at 128×128)
-2. Uniform 3m model (all bands→3m at 256×256)
+1. Multi-Resolution model (10m→3m at 260×260, 20m→6m at 130×130)
+2. Bilinear interpolation baseline
 
-Uses validation data (unseen during training) to evaluate generalization.
+Uses held-out test data (unseen during training) to evaluate generalization.
 """
 
 import sys
@@ -19,6 +19,7 @@ matplotlib.use('Agg')
 import pickle
 import numpy as np
 import torch
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.ndimage import zoom
@@ -31,12 +32,11 @@ sys.path.insert(0, str(project_root / 'scripts' / 'preprocessing'))
 sys.path.insert(0, str(project_root / 'scripts' / 'training' / 'models'))
 
 from satellite_sr_model import MultiResolutionSatelliteSR
-from convert_cache_to_5band import TrainingSample5Band  # Needed for pickle
 
 
-def load_model(checkpoint_path, scale_factor_10m=3.32, scale_factor_20m=3.37):
+def load_model(checkpoint_path, scale_factor_10m=3.33, scale_factor_20m=3.33):
     """Load a trained model from checkpoint."""
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
     
     model = MultiResolutionSatelliteSR(
         in_channels_10m=3,
@@ -50,48 +50,31 @@ def load_model(checkpoint_path, scale_factor_10m=3.32, scale_factor_20m=3.37):
     
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
-    return model
+    return model, checkpoint
 
 
-def prepare_sample(sample, sequence_length=3):
-    """Prepare a sample for inference."""
-    # Get arrays - (T, H, W, C) format
-    lr_10m = sample.lr_sequence.copy()
-    lr_20m = sample.lr_20m_sequence.copy()
-    hr_10m = sample.hr_10m_sequence.copy()
-    hr_20m = sample.hr_20m_sequence.copy()
-    hr_full = sample.hr_sequence.copy()  # Full 5-band at 3m
+def prepare_sample_mmap(lr_10m, lr_20m, hr_10m, hr_20m, sequence_length=3):
+    """Prepare a sample from mmap arrays for inference.
     
-    # Handle temporal dimension
-    T = lr_10m.shape[0]
-    if T > sequence_length:
-        start = (T - sequence_length) // 2  # Center crop
-        lr_10m = lr_10m[start:start + sequence_length]
-        lr_20m = lr_20m[start:start + sequence_length]
-        hr_10m = hr_10m[start:start + sequence_length]
-        hr_20m = hr_20m[start:start + sequence_length]
-        hr_full = hr_full[start:start + sequence_length]
-    elif T < sequence_length:
-        while lr_10m.shape[0] < sequence_length:
-            lr_10m = np.concatenate([lr_10m, lr_10m[-1:]], axis=0)
-            lr_20m = np.concatenate([lr_20m, lr_20m[-1:]], axis=0)
-            hr_10m = np.concatenate([hr_10m, hr_10m[-1:]], axis=0)
-            hr_20m = hr_20m[start:start + sequence_length]
-            hr_full = np.concatenate([hr_full, hr_full[-1:]], axis=0)
-    
+    Args:
+        lr_10m: (T, H, W, C) - LR 10m bands
+        lr_20m: (T, H, W, C) - LR 20m bands
+        hr_10m: (T, H, W, C) - HR 10m bands (ground truth)
+        hr_20m: (T, H, W, C) - HR 20m bands (ground truth)
+        sequence_length: Number of temporal frames
+    """
     # Convert to tensors: (T, H, W, C) -> (1, T, C, H, W)
     lr_10m_t = torch.from_numpy(lr_10m).permute(0, 3, 1, 2).unsqueeze(0).float()
     lr_20m_t = torch.from_numpy(lr_20m).permute(0, 3, 1, 2).unsqueeze(0).float()
     
     # Ground truth for middle frame
     mid_idx = sequence_length // 2
-    gt_10m = hr_10m[mid_idx]  # (256, 256, 3)
-    gt_20m = hr_20m[mid_idx]  # (128, 128, 2)
-    gt_full = hr_full[mid_idx]  # (256, 256, 5)
+    gt_10m = hr_10m[mid_idx]  # (H, W, C)
+    gt_20m = hr_20m[mid_idx]  # (H/2, W/2, C)
     
     # LR for display (middle frame)
-    lr_10m_display = lr_10m[mid_idx]  # (77, 77, 3)
-    lr_20m_display = lr_20m[mid_idx]  # (38, 38, 2)
+    lr_10m_display = lr_10m[mid_idx]  # (H, W, C)
+    lr_20m_display = lr_20m[mid_idx]  # (H/2, W/2, C)
     
     return {
         'lr_10m': lr_10m_t,
@@ -100,7 +83,6 @@ def prepare_sample(sample, sequence_length=3):
         'lr_20m_display': lr_20m_display,
         'gt_10m': gt_10m,
         'gt_20m': gt_20m,
-        'gt_full': gt_full
     }
 
 
@@ -347,74 +329,59 @@ def create_false_color(bands_10m, bands_20m):
     return normalize_for_display(false_color)
 
 
-def visualize_comparison(sample_data, model_multires, model_uniform, sample_idx, save_path=None):
-    """Create visualization comparing both models."""
-    device = next(model_multires.parameters()).device
+def visualize_comparison_single_model(sample_data, model, sample_idx, save_path=None):
+    """Create visualization comparing SR model vs bilinear baseline."""
+    device = next(model.parameters()).device
     
-    # Run inference
+    # Get dimensions
+    gt_10m = sample_data['gt_10m']
+    gt_20m = sample_data['gt_20m']
+    target_h_10m, target_w_10m = gt_10m.shape[:2]
+    target_h_20m, target_w_20m = gt_20m.shape[:2]
+    
+    lr_10m_display = sample_data['lr_10m_display']
+    lr_20m_display = sample_data['lr_20m_display']
+    
+    # Run SR inference with target sizes
     with torch.no_grad():
         lr_10m = sample_data['lr_10m'].to(device)
         lr_20m = sample_data['lr_20m'].to(device)
         
-        # Multi-resolution model - specify target sizes to get 256×256 / 128×128
-        sr_10m_multi, sr_20m_multi = model_multires(lr_10m, lr_20m, 
-                                                     target_size_10m=(256, 256),
-                                                     target_size_20m=(128, 128))
-        sr_10m_multi = sr_10m_multi.cpu().numpy()[0].transpose(1, 2, 0)  # (256, 256, 3)
-        sr_20m_multi = sr_20m_multi.cpu().numpy()[0].transpose(1, 2, 0)  # (128, 128, 2)
-        
-        # Uniform 3m model - specify target sizes to get 256×256 for both
-        sr_10m_uniform, sr_20m_uniform = model_uniform(lr_10m, lr_20m,
-                                                        target_size_10m=(256, 256),
-                                                        target_size_20m=(256, 256))
-        sr_10m_uniform = sr_10m_uniform.cpu().numpy()[0].transpose(1, 2, 0)  # (256, 256, 3)
-        sr_20m_uniform = sr_20m_uniform.cpu().numpy()[0].transpose(1, 2, 0)  # (256, 256, 2)
+        sr_10m, sr_20m = model(
+            lr_10m, lr_20m,
+            target_size_10m=(target_h_10m, target_w_10m),
+            target_size_20m=(target_h_20m, target_w_20m)
+        )
+        sr_10m = sr_10m.cpu().numpy()[0].transpose(1, 2, 0)  # (H, W, C)
+        sr_20m = sr_20m.cpu().numpy()[0].transpose(1, 2, 0)
     
-    # Get ground truth and LR
-    gt_10m = sample_data['gt_10m']
-    gt_20m = sample_data['gt_20m']
-    gt_full = sample_data['gt_full']
-    lr_10m_display = sample_data['lr_10m_display']
-    lr_20m_display = sample_data['lr_20m_display']
+    # Compute bilinear baseline (upscale LR to HR size)
+    bilinear_10m = F.interpolate(
+        torch.tensor(lr_10m_display).permute(2, 0, 1).unsqueeze(0).float(),
+        size=(target_h_10m, target_w_10m),
+        mode='bilinear', align_corners=False
+    )[0].permute(1, 2, 0).numpy()
     
-    # For uniform model, compare 20m at full resolution
-    gt_20m_full = gt_full[:, :, 3:5]  # RedEdge, NIR at 256×256
+    bilinear_20m = F.interpolate(
+        torch.tensor(lr_20m_display).permute(2, 0, 1).unsqueeze(0).float(),
+        size=(target_h_20m, target_w_20m),
+        mode='bilinear', align_corners=False
+    )[0].permute(1, 2, 0).numpy()
     
-    # Compute BILINEAR BASELINE
-    # Upscale LR to HR size using bilinear interpolation
-    bilinear_10m = zoom(lr_10m_display, (256/77, 256/77, 1), order=1)  # (256, 256, 3)
-    bilinear_20m_multi = zoom(lr_20m_display, (128/38, 128/38, 1), order=1)  # (128, 128, 2) for multi-res comparison
-    bilinear_20m_uniform = zoom(lr_20m_display, (256/38, 256/38, 1), order=1)  # (256, 256, 2) for uniform comparison
-    
-    # Compute ALL metrics for bilinear baseline
+    # Compute metrics
+    metrics_sr_10m = compute_all_metrics(sr_10m, gt_10m, scale_ratio=3.33)
+    metrics_sr_20m = compute_all_metrics(sr_20m, gt_20m, scale_ratio=3.33)
     metrics_bilinear_10m = compute_all_metrics(bilinear_10m, gt_10m, scale_ratio=3.33)
-    metrics_bilinear_20m_multi = compute_all_metrics(bilinear_20m_multi, gt_20m, scale_ratio=3.33)
-    metrics_bilinear_20m_uniform = compute_all_metrics(bilinear_20m_uniform, gt_20m_full, scale_ratio=6.74)
+    metrics_bilinear_20m = compute_all_metrics(bilinear_20m, gt_20m, scale_ratio=3.33)
     
-    # Compute ALL metrics for both models
-    # Scale factors: 10m bands at 3.33×, 20m bands at 3.33× (multi) or 6.74× (uniform)
-    metrics_multi_10m = compute_all_metrics(sr_10m_multi, gt_10m, scale_ratio=3.33)
-    metrics_multi_20m = compute_all_metrics(sr_20m_multi, gt_20m, scale_ratio=3.33)
-    metrics_uniform_10m = compute_all_metrics(sr_10m_uniform, gt_10m, scale_ratio=3.33)
-    metrics_uniform_20m = compute_all_metrics(sr_20m_uniform, gt_20m_full, scale_ratio=6.74)
-    
-    # Extract PSNR for backward compatibility
-    psnr_multi_10m = metrics_multi_10m['psnr']
-    psnr_multi_20m = metrics_multi_20m['psnr']
-    psnr_uniform_10m = metrics_uniform_10m['psnr']
-    psnr_uniform_20m = metrics_uniform_20m['psnr']
-    psnr_bilinear_10m = metrics_bilinear_10m['psnr']
-    
-    # Create figure - larger to accommodate metrics table
-    fig = plt.figure(figsize=(24, 18))
+    # Create figure
+    fig = plt.figure(figsize=(20, 16))
     
     # Title with key metrics
     fig.suptitle(f'Super-Resolution Comparison - Sample {sample_idx}\n'
-                 f'Bilinear PSNR: 10m={psnr_bilinear_10m:.2f}dB | '
-                 f'Multi-Res PSNR: 10m={psnr_multi_10m:.2f}dB, 20m={psnr_multi_20m:.2f}dB | '
-                 f'Uniform 3m PSNR: 10m={psnr_uniform_10m:.2f}dB, 20m={psnr_uniform_20m:.2f}dB\n'
-                 f'Multi-Res SSIM: 10m={metrics_multi_10m["ssim"]:.4f}, 20m={metrics_multi_20m["ssim"]:.4f} | '
-                 f'Uniform 3m SSIM: 10m={metrics_uniform_10m["ssim"]:.4f}, 20m={metrics_uniform_20m["ssim"]:.4f}',
+                 f'Bilinear: 10m={metrics_bilinear_10m["psnr"]:.2f}dB, 20m={metrics_bilinear_20m["psnr"]:.2f}dB | '
+                 f'SR Model: 10m={metrics_sr_10m["psnr"]:.2f}dB, 20m={metrics_sr_20m["psnr"]:.2f}dB | '
+                 f'Improvement: 10m={metrics_sr_10m["psnr"]-metrics_bilinear_10m["psnr"]:+.2f}dB, 20m={metrics_sr_20m["psnr"]-metrics_bilinear_20m["psnr"]:+.2f}dB',
                  fontsize=12, fontweight='bold')
     
     # Row 1: RGB composites
@@ -425,27 +392,27 @@ def visualize_comparison(sample_data, model_multires, model_uniform, sample_idx,
     ax1.axis('off')
     
     ax2 = fig.add_subplot(4, 5, 2)
-    ax2.imshow(create_rgb_composite(sr_10m_multi))
-    ax2.set_title(f'Multi-Res SR\n(256×256)')
+    ax2.imshow(create_rgb_composite(bilinear_10m))
+    ax2.set_title(f'Bilinear\n({target_h_10m}×{target_w_10m})')
     ax2.axis('off')
     
     ax3 = fig.add_subplot(4, 5, 3)
-    ax3.imshow(create_rgb_composite(sr_10m_uniform))
-    ax3.set_title(f'Uniform 3m SR\n(256×256)')
+    ax3.imshow(create_rgb_composite(sr_10m))
+    ax3.set_title(f'SR Model\n({target_h_10m}×{target_w_10m})')
     ax3.axis('off')
     
     ax4 = fig.add_subplot(4, 5, 4)
     ax4.imshow(create_rgb_composite(gt_10m))
-    ax4.set_title(f'Ground Truth\n(256×256)')
+    ax4.set_title(f'Ground Truth\n({target_h_10m}×{target_w_10m})')
     ax4.axis('off')
     
-    # Difference map for 10m
+    # Difference maps
     ax5 = fig.add_subplot(4, 5, 5)
-    diff_multi = np.abs(sr_10m_multi - gt_10m).mean(axis=-1)
-    diff_uniform = np.abs(sr_10m_uniform - gt_10m).mean(axis=-1)
-    diff_comparison = diff_uniform - diff_multi  # Positive = multi-res better
+    diff_bilinear = np.abs(bilinear_10m - gt_10m).mean(axis=-1)
+    diff_sr = np.abs(sr_10m - gt_10m).mean(axis=-1)
+    diff_comparison = diff_bilinear - diff_sr  # Positive = SR better
     im = ax5.imshow(diff_comparison, cmap='RdBu', vmin=-0.05, vmax=0.05)
-    ax5.set_title('Error Diff\n(Blue=Multi better)')
+    ax5.set_title('Error Diff\n(Blue=SR better)')
     ax5.axis('off')
     plt.colorbar(im, ax=ax5, fraction=0.046)
     
@@ -454,85 +421,81 @@ def visualize_comparison(sample_data, model_multires, model_uniform, sample_idx,
     for i, name in enumerate(band_names_10m):
         ax = fig.add_subplot(4, 5, 6 + i)
         comparison = np.hstack([
-            normalize_for_display(sr_10m_multi[:, :, i:i+1].repeat(3, axis=-1)),
-            normalize_for_display(sr_10m_uniform[:, :, i:i+1].repeat(3, axis=-1)),
+            normalize_for_display(bilinear_10m[:, :, i:i+1].repeat(3, axis=-1)),
+            normalize_for_display(sr_10m[:, :, i:i+1].repeat(3, axis=-1)),
             normalize_for_display(gt_10m[:, :, i:i+1].repeat(3, axis=-1))
         ])
         ax.imshow(comparison, cmap='gray')
-        ax.set_title(f'{name}\nMulti | Uniform | GT')
+        ax.set_title(f'{name}\nBilinear | SR | GT')
         ax.axis('off')
     
-    # Row 2 continued: Bilinear upsampled LR for reference
+    # Row 2: PSNR improvement info
     ax = fig.add_subplot(4, 5, 9)
-    lr_bilinear = zoom(lr_10m_display, (256/77, 256/77, 1), order=1)
-    ax.imshow(create_rgb_composite(lr_bilinear))
-    ax.set_title('Bilinear Upscale\n(baseline)')
     ax.axis('off')
-    
-    # PSNR vs Bilinear
-    psnr_bilinear = compute_psnr(lr_bilinear, gt_10m)
-    ax = fig.add_subplot(4, 5, 10)
-    ax.axis('off')
-    ax.text(0.5, 0.5, f'Bilinear PSNR:\n{psnr_bilinear:.2f} dB\n\n'
-            f'Multi-Res gain:\n+{psnr_multi_10m - psnr_bilinear:.2f} dB\n\n'
-            f'Uniform gain:\n+{psnr_uniform_10m - psnr_bilinear:.2f} dB',
-            ha='center', va='center', fontsize=11, transform=ax.transAxes,
+    ax.text(0.5, 0.5, f'10m Bands:\n\n'
+            f'Bilinear PSNR: {metrics_bilinear_10m["psnr"]:.2f} dB\n'
+            f'SR Model PSNR: {metrics_sr_10m["psnr"]:.2f} dB\n'
+            f'Improvement: {metrics_sr_10m["psnr"]-metrics_bilinear_10m["psnr"]:+.2f} dB\n\n'
+            f'Bilinear SSIM: {metrics_bilinear_10m["ssim"]:.4f}\n'
+            f'SR Model SSIM: {metrics_sr_10m["ssim"]:.4f}',
+            ha='center', va='center', fontsize=10, transform=ax.transAxes,
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
-    # Row 3: 20m bands comparison (RedEdge)
-    ax = fig.add_subplot(4, 5, 11)
-    sr_20m_multi_up = zoom(sr_20m_multi[:, :, 0], 2, order=1)  # Upsample to 256×256
-    comparison_re = np.hstack([
-        normalize_for_display(sr_20m_multi_up[:, :, np.newaxis].repeat(3, axis=-1)),
-        normalize_for_display(sr_20m_uniform[:, :, 0:1].repeat(3, axis=-1)),
-        normalize_for_display(gt_20m_full[:, :, 0:1].repeat(3, axis=-1))
-    ])
-    ax.imshow(comparison_re, cmap='gray')
-    ax.set_title('RedEdge (B5)\nMulti(↑2×) | Uniform | GT')
+    ax = fig.add_subplot(4, 5, 10)
     ax.axis('off')
+    ax.text(0.5, 0.5, f'20m Bands:\n\n'
+            f'Bilinear PSNR: {metrics_bilinear_20m["psnr"]:.2f} dB\n'
+            f'SR Model PSNR: {metrics_sr_20m["psnr"]:.2f} dB\n'
+            f'Improvement: {metrics_sr_20m["psnr"]-metrics_bilinear_20m["psnr"]:+.2f} dB\n\n'
+            f'Bilinear SSIM: {metrics_bilinear_20m["ssim"]:.4f}\n'
+            f'SR Model SSIM: {metrics_sr_20m["ssim"]:.4f}',
+            ha='center', va='center', fontsize=10, transform=ax.transAxes,
+            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
     
-    # NIR band
-    ax = fig.add_subplot(4, 5, 12)
-    sr_20m_multi_up_nir = zoom(sr_20m_multi[:, :, 1], 2, order=1)
-    comparison_nir = np.hstack([
-        normalize_for_display(sr_20m_multi_up_nir[:, :, np.newaxis].repeat(3, axis=-1)),
-        normalize_for_display(sr_20m_uniform[:, :, 1:2].repeat(3, axis=-1)),
-        normalize_for_display(gt_20m_full[:, :, 1:2].repeat(3, axis=-1))
-    ])
-    ax.imshow(comparison_nir, cmap='gray')
-    ax.set_title('NIR (B8A)\nMulti(↑2×) | Uniform | GT')
-    ax.axis('off')
+    # Row 3: 20m bands (RedEdge, NIR)
+    band_names_20m = ['RedEdge', 'NIR']
+    for i, name in enumerate(band_names_20m):
+        ax = fig.add_subplot(4, 5, 11 + i)
+        comparison = np.hstack([
+            normalize_for_display(bilinear_20m[:, :, i:i+1].repeat(3, axis=-1)),
+            normalize_for_display(sr_20m[:, :, i:i+1].repeat(3, axis=-1)),
+            normalize_for_display(gt_20m[:, :, i:i+1].repeat(3, axis=-1))
+        ])
+        ax.imshow(comparison, cmap='gray')
+        ax.set_title(f'{name}\nBilinear | SR | GT')
+        ax.axis('off')
     
-    # Row 3 continued: False color composites
+    # False color composite
     ax = fig.add_subplot(4, 5, 13)
-    ax.imshow(create_false_color(sr_10m_multi, sr_20m_multi))
-    ax.set_title('False Color (NIR-R-G)\nMulti-Res')
+    ax.imshow(create_false_color(bilinear_10m, bilinear_20m))
+    ax.set_title('False Color (NIR-R-G)\nBilinear')
     ax.axis('off')
     
     ax = fig.add_subplot(4, 5, 14)
-    ax.imshow(create_false_color(sr_10m_uniform, sr_20m_uniform))
-    ax.set_title('False Color (NIR-R-G)\nUniform 3m')
+    ax.imshow(create_false_color(sr_10m, sr_20m))
+    ax.set_title('False Color (NIR-R-G)\nSR Model')
     ax.axis('off')
     
     ax = fig.add_subplot(4, 5, 15)
-    ax.imshow(create_false_color(gt_10m, gt_20m_full))
+    ax.imshow(create_false_color(gt_10m, gt_20m))
     ax.set_title('False Color (NIR-R-G)\nGround Truth')
     ax.axis('off')
     
     # Row 4: Zoomed regions
     zoom_size = 64
-    center = 128
-    slice_h = slice(center - zoom_size//2, center + zoom_size//2)
-    slice_w = slice(center - zoom_size//2, center + zoom_size//2)
+    center_h = target_h_10m // 2
+    center_w = target_w_10m // 2
+    slice_h = slice(center_h - zoom_size//2, center_h + zoom_size//2)
+    slice_w = slice(center_w - zoom_size//2, center_w + zoom_size//2)
     
     ax = fig.add_subplot(4, 5, 16)
-    ax.imshow(create_rgb_composite(sr_10m_multi[slice_h, slice_w]))
-    ax.set_title('Zoomed Multi-Res\n(64×64 crop)')
+    ax.imshow(create_rgb_composite(bilinear_10m[slice_h, slice_w]))
+    ax.set_title('Zoomed Bilinear\n(64×64 crop)')
     ax.axis('off')
     
     ax = fig.add_subplot(4, 5, 17)
-    ax.imshow(create_rgb_composite(sr_10m_uniform[slice_h, slice_w]))
-    ax.set_title('Zoomed Uniform 3m\n(64×64 crop)')
+    ax.imshow(create_rgb_composite(sr_10m[slice_h, slice_w]))
+    ax.set_title('Zoomed SR\n(64×64 crop)')
     ax.axis('off')
     
     ax = fig.add_subplot(4, 5, 18)
@@ -544,35 +507,25 @@ def visualize_comparison(sample_data, model_multires, model_uniform, sample_idx,
     ax = fig.add_subplot(4, 5, 19)
     bands = ['Blue', 'Green', 'Red', 'RedEdge', 'NIR']
     
-    psnr_multi = [
-        compute_psnr(sr_10m_multi[:, :, 0], gt_10m[:, :, 0]),
-        compute_psnr(sr_10m_multi[:, :, 1], gt_10m[:, :, 1]),
-        compute_psnr(sr_10m_multi[:, :, 2], gt_10m[:, :, 2]),
-        compute_psnr(sr_20m_multi[:, :, 0], gt_20m[:, :, 0]),
-        compute_psnr(sr_20m_multi[:, :, 1], gt_20m[:, :, 1]),
+    psnr_sr = [
+        compute_psnr(sr_10m[:, :, 0], gt_10m[:, :, 0]),
+        compute_psnr(sr_10m[:, :, 1], gt_10m[:, :, 1]),
+        compute_psnr(sr_10m[:, :, 2], gt_10m[:, :, 2]),
+        compute_psnr(sr_20m[:, :, 0], gt_20m[:, :, 0]),
+        compute_psnr(sr_20m[:, :, 1], gt_20m[:, :, 1]),
     ]
-    psnr_uniform = [
-        compute_psnr(sr_10m_uniform[:, :, 0], gt_10m[:, :, 0]),
-        compute_psnr(sr_10m_uniform[:, :, 1], gt_10m[:, :, 1]),
-        compute_psnr(sr_10m_uniform[:, :, 2], gt_10m[:, :, 2]),
-        compute_psnr(sr_20m_uniform[:, :, 0], gt_20m_full[:, :, 0]),
-        compute_psnr(sr_20m_uniform[:, :, 1], gt_20m_full[:, :, 1]),
-    ]
-    
-    # Per-band PSNR for bilinear
     psnr_bilinear = [
         compute_psnr(bilinear_10m[:, :, 0], gt_10m[:, :, 0]),
         compute_psnr(bilinear_10m[:, :, 1], gt_10m[:, :, 1]),
         compute_psnr(bilinear_10m[:, :, 2], gt_10m[:, :, 2]),
-        compute_psnr(bilinear_20m_uniform[:, :, 0], gt_20m_full[:, :, 0]),
-        compute_psnr(bilinear_20m_uniform[:, :, 1], gt_20m_full[:, :, 1]),
+        compute_psnr(bilinear_20m[:, :, 0], gt_20m[:, :, 0]),
+        compute_psnr(bilinear_20m[:, :, 1], gt_20m[:, :, 1]),
     ]
     
     x = np.arange(len(bands))
-    width = 0.25
-    ax.bar(x - width, psnr_bilinear, width, label='Bilinear', color='gray', alpha=0.7)
-    ax.bar(x, psnr_multi, width, label='Multi-Res', color='steelblue')
-    ax.bar(x + width, psnr_uniform, width, label='Uniform 3m', color='darkorange')
+    width = 0.35
+    ax.bar(x - width/2, psnr_bilinear, width, label='Bilinear', color='gray', alpha=0.7)
+    ax.bar(x + width/2, psnr_sr, width, label='SR Model', color='steelblue')
     ax.set_ylabel('PSNR (dB)')
     ax.set_xticks(x)
     ax.set_xticklabels(bands, rotation=45)
@@ -581,34 +534,24 @@ def visualize_comparison(sample_data, model_multires, model_uniform, sample_idx,
     ax.set_ylim([20, 50])
     ax.grid(axis='y', alpha=0.3)
     
-    # Summary text with ALL metrics including bilinear
+    # Summary text
     ax = fig.add_subplot(4, 5, 20)
     ax.axis('off')
     
-    # Create comprehensive metrics summary
     summary_text = (
         f"═══ QUALITY METRICS ═══\n\n"
-        f"Bilinear Baseline:\n"
-        f"  10m bands:\n"
-        f"    PSNR:  {metrics_bilinear_10m['psnr']:.2f} dB\n"
-        f"    SSIM:  {metrics_bilinear_10m['ssim']:.4f}\n"
-        f"    SCC:   {metrics_bilinear_10m['scc']:.4f}\n"
-        f"    RMSE:  {metrics_bilinear_10m['rmse']:.4f}\n"
-        f"    ERGAS: {metrics_bilinear_10m['ergas']:.2f}\n"
-        f"  20m bands:\n"
-        f"    PSNR:  {metrics_bilinear_20m_uniform['psnr']:.2f} dB\n"
-        f"    SSIM:  {metrics_bilinear_20m_uniform['ssim']:.4f}\n"
-        f"    ERGAS: {metrics_bilinear_20m_uniform['ergas']:.2f}\n\n"
-        f"Multi-Resolution Model:\n"
-        f"  10m: PSNR={metrics_multi_10m['psnr']:.2f}dB\n"
-        f"       SSIM={metrics_multi_10m['ssim']:.4f}\n"
-        f"  20m: PSNR={metrics_multi_20m['psnr']:.2f}dB\n"
-        f"       SSIM={metrics_multi_20m['ssim']:.4f}\n\n"
-        f"Uniform 3m Model:\n"
-        f"  10m: PSNR={metrics_uniform_10m['psnr']:.2f}dB\n"
-        f"       SSIM={metrics_uniform_10m['ssim']:.4f}\n"
-        f"  20m: PSNR={metrics_uniform_20m['psnr']:.2f}dB\n"
-        f"       SSIM={metrics_uniform_20m['ssim']:.4f}\n"
+        f"10m Bands:\n"
+        f"  Bilinear: PSNR={metrics_bilinear_10m['psnr']:.2f}dB\n"
+        f"            SSIM={metrics_bilinear_10m['ssim']:.4f}\n"
+        f"            ERGAS={metrics_bilinear_10m['ergas']:.2f}\n"
+        f"  SR Model: PSNR={metrics_sr_10m['psnr']:.2f}dB\n"
+        f"            SSIM={metrics_sr_10m['ssim']:.4f}\n"
+        f"            ERGAS={metrics_sr_10m['ergas']:.2f}\n\n"
+        f"20m Bands:\n"
+        f"  Bilinear: PSNR={metrics_bilinear_20m['psnr']:.2f}dB\n"
+        f"            SSIM={metrics_bilinear_20m['ssim']:.4f}\n"
+        f"  SR Model: PSNR={metrics_sr_20m['psnr']:.2f}dB\n"
+        f"            SSIM={metrics_sr_20m['ssim']:.4f}\n"
     )
     
     ax.text(0.05, 0.95, summary_text, transform=ax.transAxes, fontsize=8,
@@ -624,286 +567,189 @@ def visualize_comparison(sample_data, model_multires, model_uniform, sample_idx,
     plt.close(fig)
     
     return {
-        # PSNR
-        'psnr_multi_10m': psnr_multi_10m,
-        'psnr_multi_20m': psnr_multi_20m,
-        'psnr_uniform_10m': psnr_uniform_10m,
-        'psnr_uniform_20m': psnr_uniform_20m,
-        'psnr_multi_bands': psnr_multi,
-        'psnr_uniform_bands': psnr_uniform,
+        'psnr_sr_10m': metrics_sr_10m['psnr'],
+        'psnr_sr_20m': metrics_sr_20m['psnr'],
+        'psnr_bilinear_10m': metrics_bilinear_10m['psnr'],
+        'psnr_bilinear_20m': metrics_bilinear_20m['psnr'],
+        'psnr_sr_bands': psnr_sr,
         'psnr_bilinear_bands': psnr_bilinear,
-        # Full metrics
-        'metrics_multi_10m': metrics_multi_10m,
-        'metrics_multi_20m': metrics_multi_20m,
-        'metrics_uniform_10m': metrics_uniform_10m,
-        'metrics_uniform_20m': metrics_uniform_20m,
+        'metrics_sr_10m': metrics_sr_10m,
+        'metrics_sr_20m': metrics_sr_20m,
         'metrics_bilinear_10m': metrics_bilinear_10m,
-        'metrics_bilinear_20m': metrics_bilinear_20m_uniform,
+        'metrics_bilinear_20m': metrics_bilinear_20m,
     }
 
 
 def main():
+    """Main evaluation function using mmap test data."""
     # Paths
-    data_path = project_root / 'data' / 'sr_training' / '5band_full' / 'superdove_5band' / 'dataset.pkl'
-    checkpoint_multires = project_root / 'checkpoints' / '5band_multires_full' / 'best_model.pt'
-    checkpoint_uniform = project_root / 'checkpoints' / '5band_uniform_3m_full' / 'best_model.pt'
-    output_dir = project_root / 'results' / 'sr_5band_comparison'
+    test_dir = project_root / 'data' / 'sr_training' / '5band_v3' / 'combined' / 'mmap_test'
+    checkpoint_path = project_root / 'checkpoints' / '5band_v3_goodonly' / 'best_model.pt'
+    output_dir = project_root / 'results' / 'sr_5band_evaluation'
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print("=" * 70)
-    print("5-BAND SUPER-RESOLUTION MODEL COMPARISON")
+    print("5-BAND SUPER-RESOLUTION MODEL EVALUATION")
     print("=" * 70)
     
     # Check files exist
-    if not data_path.exists():
-        print(f"Error: Data not found at {data_path}")
+    if not test_dir.exists():
+        print(f"Error: Test data not found at {test_dir}")
         return
-    if not checkpoint_multires.exists():
-        print(f"Error: Multi-res checkpoint not found at {checkpoint_multires}")
-        return
-    if not checkpoint_uniform.exists():
-        print(f"Error: Uniform checkpoint not found at {checkpoint_uniform}")
+    if not checkpoint_path.exists():
+        print(f"Error: Checkpoint not found at {checkpoint_path}")
         return
     
-    # Load data
-    print("\nLoading validation data...")
-    with open(data_path, 'rb') as f:
-        dataset = pickle.load(f)
+    # Load test data from mmap
+    print("\nLoading test data...")
+    lr_10m_all = np.load(test_dir / 'lr.npy', mmap_mode='r')
+    lr_20m_all = np.load(test_dir / 'lr_20m.npy', mmap_mode='r')
+    hr_10m_all = np.load(test_dir / 'hr_10m.npy', mmap_mode='r')
+    hr_20m_all = np.load(test_dir / 'hr_20m.npy', mmap_mode='r')
     
-    samples = dataset['samples']
+    n_samples = lr_10m_all.shape[0]
+    print(f"  Test samples: {n_samples}")
+    print(f"  LR 10m shape: {lr_10m_all.shape}")
+    print(f"  HR 10m shape: {hr_10m_all.shape}")
     
-    # Filter valid samples
-    valid_samples = [s for s in samples if 
-                    s.lr_sequence is not None and 
-                    s.lr_20m_sequence is not None and
-                    s.hr_10m_sequence is not None and
-                    s.hr_20m_sequence is not None and
-                    s.hr_sequence is not None]
-    
-    print(f"  Total samples: {len(samples)}")
-    print(f"  Valid samples: {len(valid_samples)}")
-    
-    # Use validation split (last 20%)
-    val_start = int(len(valid_samples) * 0.8)
-    val_samples = valid_samples[val_start:]
-    print(f"  Validation samples: {len(val_samples)}")
-    
-    # Load models
-    print("\nLoading models...")
+    # Load model
+    print("\nLoading model...")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"  Device: {device}")
     
-    model_multires = load_model(checkpoint_multires, scale_factor_10m=3.32, scale_factor_20m=3.37)
-    model_multires = model_multires.to(device)
-    print(f"  Multi-res model loaded ({sum(p.numel() for p in model_multires.parameters()):,} params)")
+    model, checkpoint = load_model(checkpoint_path, scale_factor_10m=3.33, scale_factor_20m=3.33)
+    model = model.to(device)
+    print(f"  Model loaded ({sum(p.numel() for p in model.parameters()):,} params)")
+    print(f"  Trained for {checkpoint['epoch']} epochs")
+    print(f"  Training val_loss: {checkpoint['val_loss']:.4f}")
     
-    model_uniform = load_model(checkpoint_uniform, scale_factor_10m=3.32, scale_factor_20m=6.74)
-    model_uniform = model_uniform.to(device)
-    print(f"  Uniform 3m model loaded ({sum(p.numel() for p in model_uniform.parameters()):,} params)")
-    
-    # Visualize random samples
+    # Evaluate
     print("\n" + "=" * 70)
-    print("GENERATING VISUALIZATIONS")
+    print("GENERATING VISUALIZATIONS AND METRICS")
     print("=" * 70)
     
     np.random.seed(42)
-    num_samples_to_evaluate = 100  # Evaluate metrics on 100 samples
-    num_visualizations_to_save = 10  # But only save 10 visualizations
-    
-    # Select samples for evaluation
-    num_to_use = min(num_samples_to_evaluate, len(val_samples))
-    sample_indices = np.random.choice(len(val_samples), num_to_use, replace=False)
-    
-    # Select which ones to save visualizations for
-    viz_indices = set(sample_indices[:num_visualizations_to_save])
+    num_visualizations = min(10, n_samples)  # Save visualizations for 10 samples
+    viz_indices = np.random.choice(n_samples, num_visualizations, replace=False)
+    viz_indices_set = set(viz_indices)
     
     all_results = []
     
-    for i, idx in enumerate(sample_indices):
-        save_viz = idx in viz_indices
-        progress = f"[{i+1}/{num_to_use}]"
+    for i in range(n_samples):
+        save_viz = i in viz_indices_set
         
-        sample = val_samples[idx]
-        sample_data = prepare_sample(sample)
+        # Prepare sample
+        lr_10m = np.array(lr_10m_all[i])
+        lr_20m = np.array(lr_20m_all[i])
+        hr_10m = np.array(hr_10m_all[i])
+        hr_20m = np.array(hr_20m_all[i])
+        
+        sample_data = prepare_sample_mmap(lr_10m, lr_20m, hr_10m, hr_20m)
         
         if save_viz:
-            save_path = output_dir / f'comparison_sample_{idx}.png'
-            print(f"\n{progress} Processing sample {idx} (saving visualization)...")
+            save_path = output_dir / f'comparison_sample_{i}.png'
+            print(f"\n[{i+1}/{n_samples}] Processing sample {i} (saving visualization)...")
         else:
             save_path = None
             if (i+1) % 20 == 0:
-                print(f"{progress} Processing samples...")
+                print(f"[{i+1}/{n_samples}] Processing samples...")
         
-        results = visualize_comparison(sample_data, model_multires, model_uniform, idx, save_path)
+        results = visualize_comparison_single_model(sample_data, model, i, save_path)
         all_results.append(results)
         
         if save_viz:
-            print(f"  Multi-Res: 10m={results['psnr_multi_10m']:.2f}dB, 20m={results['psnr_multi_20m']:.2f}dB")
-            print(f"  Uniform:   10m={results['psnr_uniform_10m']:.2f}dB, 20m={results['psnr_uniform_20m']:.2f}dB")
-            print(f"  Bilinear:  10m={results['metrics_bilinear_10m']['psnr']:.2f}dB, 20m={results['metrics_bilinear_20m']['psnr']:.2f}dB")
-    
-    print(f"\nEvaluated {len(all_results)} samples, saved {len(viz_indices)} visualizations")
+            improvement_10m = results['psnr_sr_10m'] - results['psnr_bilinear_10m']
+            improvement_20m = results['psnr_sr_20m'] - results['psnr_bilinear_20m']
+            print(f"  SR Model:  10m={results['psnr_sr_10m']:.2f}dB, 20m={results['psnr_sr_20m']:.2f}dB")
+            print(f"  Bilinear:  10m={results['psnr_bilinear_10m']:.2f}dB, 20m={results['psnr_bilinear_20m']:.2f}dB")
+            print(f"  Improvement: 10m={improvement_10m:+.2f}dB, 20m={improvement_20m:+.2f}dB")
     
     # Summary statistics
     print("\n" + "=" * 70)
-    print(f"SUMMARY STATISTICS ({len(all_results)} Validation Samples)")
+    print(f"SUMMARY STATISTICS ({len(all_results)} Test Samples)")
     print("=" * 70)
     
-    # Compute averages for all metrics
+    # Compute averages
     metric_names = ['psnr', 'ssim', 'scc', 'rmse', 'ergas', 'sid']
     
     avg_metrics = {
-        'multi_10m': {m: np.mean([r['metrics_multi_10m'][m] for r in all_results]) for m in metric_names},
-        'multi_20m': {m: np.mean([r['metrics_multi_20m'][m] for r in all_results]) for m in metric_names},
-        'uniform_10m': {m: np.mean([r['metrics_uniform_10m'][m] for r in all_results]) for m in metric_names},
-        'uniform_20m': {m: np.mean([r['metrics_uniform_20m'][m] for r in all_results]) for m in metric_names},
+        'sr_10m': {m: np.mean([r['metrics_sr_10m'][m] for r in all_results]) for m in metric_names},
+        'sr_20m': {m: np.mean([r['metrics_sr_20m'][m] for r in all_results]) for m in metric_names},
         'bilinear_10m': {m: np.mean([r['metrics_bilinear_10m'][m] for r in all_results]) for m in metric_names},
         'bilinear_20m': {m: np.mean([r['metrics_bilinear_20m'][m] for r in all_results]) for m in metric_names},
     }
     
+    std_metrics = {
+        'sr_10m': {m: np.std([r['metrics_sr_10m'][m] for r in all_results]) for m in metric_names},
+        'sr_20m': {m: np.std([r['metrics_sr_20m'][m] for r in all_results]) for m in metric_names},
+        'bilinear_10m': {m: np.std([r['metrics_bilinear_10m'][m] for r in all_results]) for m in metric_names},
+        'bilinear_20m': {m: np.std([r['metrics_bilinear_20m'][m] for r in all_results]) for m in metric_names},
+    }
+    
     print(f"\n{'─' * 90}")
-    print("BASELINE (Bilinear Interpolation) vs SR Models:")
+    print("BILINEAR BASELINE vs SR MODEL:")
     print(f"{'─' * 90}")
-    print(f"  Bilinear 10m avg: PSNR={avg_metrics['bilinear_10m']['psnr']:.2f}dB, SSIM={avg_metrics['bilinear_10m']['ssim']:.4f}, SID={avg_metrics['bilinear_10m']['sid']:.4f}")
-    print(f"  Bilinear 20m avg: PSNR={avg_metrics['bilinear_20m']['psnr']:.2f}dB, SSIM={avg_metrics['bilinear_20m']['ssim']:.4f}, SID={avg_metrics['bilinear_20m']['sid']:.4f}")
     
     # Print comprehensive metrics table
-    print(f"\n{'─' * 105}")
-    print(f"{'METRIC':<10} {'Bilinear 10m':>12} {'Bilinear 20m':>12} {'Multi-Res 10m':>14} {'Multi-Res 20m':>14} {'Uniform 10m':>12} {'Uniform 20m':>12}")
-    print(f"{'─' * 105}")
+    print(f"\n{'METRIC':<10} {'Bilinear 10m':>14} {'SR 10m':>14} {'Gain 10m':>12} {'Bilinear 20m':>14} {'SR 20m':>14} {'Gain 20m':>12}")
+    print(f"{'─' * 90}")
     
-    # PSNR (higher is better)
-    print(f"{'PSNR (dB)':<10} {avg_metrics['bilinear_10m']['psnr']:>12.2f} {avg_metrics['bilinear_20m']['psnr']:>12.2f} "
-          f"{avg_metrics['multi_10m']['psnr']:>14.2f} {avg_metrics['multi_20m']['psnr']:>14.2f} "
-          f"{avg_metrics['uniform_10m']['psnr']:>12.2f} {avg_metrics['uniform_20m']['psnr']:>12.2f}")
-    
-    # SSIM (higher is better, range 0-1)
-    print(f"{'SSIM':<10} {avg_metrics['bilinear_10m']['ssim']:>12.4f} {avg_metrics['bilinear_20m']['ssim']:>12.4f} "
-          f"{avg_metrics['multi_10m']['ssim']:>14.4f} {avg_metrics['multi_20m']['ssim']:>14.4f} "
-          f"{avg_metrics['uniform_10m']['ssim']:>12.4f} {avg_metrics['uniform_20m']['ssim']:>12.4f}")
-    
-    # SCC (higher is better, range -1 to 1)
-    print(f"{'SCC':<10} {avg_metrics['bilinear_10m']['scc']:>12.4f} {avg_metrics['bilinear_20m']['scc']:>12.4f} "
-          f"{avg_metrics['multi_10m']['scc']:>14.4f} {avg_metrics['multi_20m']['scc']:>14.4f} "
-          f"{avg_metrics['uniform_10m']['scc']:>12.4f} {avg_metrics['uniform_20m']['scc']:>12.4f}")
-    
-    # RMSE (lower is better)
-    print(f"{'RMSE':<10} {avg_metrics['bilinear_10m']['rmse']:>12.4f} {avg_metrics['bilinear_20m']['rmse']:>12.4f} "
-          f"{avg_metrics['multi_10m']['rmse']:>14.4f} {avg_metrics['multi_20m']['rmse']:>14.4f} "
-          f"{avg_metrics['uniform_10m']['rmse']:>12.4f} {avg_metrics['uniform_20m']['rmse']:>12.4f}")
-    
-    # ERGAS (lower is better)
-    print(f"{'ERGAS':<10} {avg_metrics['bilinear_10m']['ergas']:>12.2f} {avg_metrics['bilinear_20m']['ergas']:>12.2f} "
-          f"{avg_metrics['multi_10m']['ergas']:>14.2f} {avg_metrics['multi_20m']['ergas']:>14.2f} "
-          f"{avg_metrics['uniform_10m']['ergas']:>12.2f} {avg_metrics['uniform_20m']['ergas']:>12.2f}")
-    
-    # SID (lower is better)
-    print(f"{'SID':<10} {avg_metrics['bilinear_10m']['sid']:>12.4f} {avg_metrics['bilinear_20m']['sid']:>12.4f} "
-          f"{avg_metrics['multi_10m']['sid']:>14.4f} {avg_metrics['multi_20m']['sid']:>14.4f} "
-          f"{avg_metrics['uniform_10m']['sid']:>12.4f} {avg_metrics['uniform_20m']['sid']:>12.4f}")
-    
-    print(f"{'─' * 105}")
-    
-    # Winner analysis - now including bilinear
-    print(f"\n{'─' * 105}")
-    print("WINNER ANALYSIS (Bilinear vs Multi-Res vs Uniform)")
-    print(f"{'─' * 105}")
-    
-    # For 10m bands
-    print("\n10m Bands:")
     for metric in metric_names:
-        bilinear_val = avg_metrics['bilinear_10m'][metric]
-        multi_val = avg_metrics['multi_10m'][metric]
-        uniform_val = avg_metrics['uniform_10m'][metric]
+        bil_10m = avg_metrics['bilinear_10m'][metric]
+        sr_10m = avg_metrics['sr_10m'][metric]
+        bil_20m = avg_metrics['bilinear_20m'][metric]
+        sr_20m = avg_metrics['sr_20m'][metric]
         
-        # Determine winner (PSNR, SSIM, SCC: higher is better; RMSE, ERGAS, SID: lower is better)
-        if metric in ['psnr', 'ssim', 'scc']:
-            vals = {'Bilinear': bilinear_val, 'Multi-Res': multi_val, 'Uniform': uniform_val}
-            winner = max(vals, key=vals.get)
-            best_val = vals[winner]
-            second_best = sorted(vals.values(), reverse=True)[1]
-            gain = best_val - second_best
-        else:  # rmse, ergas, sid (lower is better)
-            vals = {'Bilinear': bilinear_val, 'Multi-Res': multi_val, 'Uniform': uniform_val}
-            winner = min(vals, key=vals.get)
-            best_val = vals[winner]
-            second_best = sorted(vals.values())[1]
-            gain = second_best - best_val
+        # Compute gain (positive = SR better)
+        if metric in ['psnr', 'ssim', 'scc']:  # Higher is better
+            gain_10m = sr_10m - bil_10m
+            gain_20m = sr_20m - bil_20m
+        else:  # Lower is better (rmse, ergas, sid)
+            gain_10m = bil_10m - sr_10m
+            gain_20m = bil_20m - sr_20m
         
-        print(f"  {metric.upper():<6}: {winner} (gain: {gain:.4f})")
+        if metric == 'psnr':
+            print(f"{metric.upper():<10} {bil_10m:>14.2f} {sr_10m:>14.2f} {gain_10m:>+12.2f} {bil_20m:>14.2f} {sr_20m:>14.2f} {gain_20m:>+12.2f}")
+        else:
+            print(f"{metric.upper():<10} {bil_10m:>14.4f} {sr_10m:>14.4f} {gain_10m:>+12.4f} {bil_20m:>14.4f} {sr_20m:>14.4f} {gain_20m:>+12.4f}")
     
-    # For 20m bands
-    print("\n20m Bands:")
-    for metric in metric_names:
-        bilinear_val = avg_metrics['bilinear_20m'][metric]
-        multi_val = avg_metrics['multi_20m'][metric]
-        uniform_val = avg_metrics['uniform_20m'][metric]
-        
-        if metric in ['psnr', 'ssim', 'scc']:
-            vals = {'Bilinear': bilinear_val, 'Multi-Res': multi_val, 'Uniform': uniform_val}
-            winner = max(vals, key=vals.get)
-            best_val = vals[winner]
-            second_best = sorted(vals.values(), reverse=True)[1]
-            gain = best_val - second_best
-        else:  # rmse, ergas, sid (lower is better)
-            vals = {'Bilinear': bilinear_val, 'Multi-Res': multi_val, 'Uniform': uniform_val}
-            winner = min(vals, key=vals.get)
-            best_val = vals[winner]
-            second_best = sorted(vals.values())[1]
-            gain = second_best - best_val
-        
-        print(f"  {metric.upper():<6}: {winner} (gain: {gain:.4f})")
+    print(f"{'─' * 90}")
     
     # Per-band PSNR summary
     print(f"\n{'─' * 90}")
     print("PER-BAND PSNR COMPARISON")
-    print(f"{'─' * 105}")
+    print(f"{'─' * 90}")
     bands = ['Blue', 'Green', 'Red', 'RedEdge', 'NIR']
     for i, band in enumerate(bands):
-        avg_multi = np.mean([r['psnr_multi_bands'][i] for r in all_results])
-        avg_uniform = np.mean([r['psnr_uniform_bands'][i] for r in all_results])
-        winner = "Multi-Res" if avg_multi > avg_uniform else "Uniform"
-        diff = abs(avg_multi - avg_uniform)
-        print(f"  {band:8s}: Multi={avg_multi:.2f}dB, Uniform={avg_uniform:.2f}dB → {winner} (+{diff:.2f}dB)")
+        avg_sr = np.mean([r['psnr_sr_bands'][i] for r in all_results])
+        avg_bilinear = np.mean([r['psnr_bilinear_bands'][i] for r in all_results])
+        std_sr = np.std([r['psnr_sr_bands'][i] for r in all_results])
+        gain = avg_sr - avg_bilinear
+        winner = "SR" if gain > 0 else "Bilinear"
+        print(f"  {band:8s}: Bilinear={avg_bilinear:.2f}dB, SR={avg_sr:.2f}dB (±{std_sr:.2f}) → {winner} ({gain:+.2f}dB)")
     
-    # SR improvement over bilinear
-    print(f"\n{'─' * 105}")
-    print("SR IMPROVEMENT OVER BILINEAR BASELINE")
-    print(f"{'─' * 105}")
+    # Overall summary
+    print(f"\n{'═' * 90}")
+    print("OVERALL ASSESSMENT")
+    print(f"{'═' * 90}")
     
-    print("\n10m Bands:")
-    for metric in metric_names:
-        bilinear_val = avg_metrics['bilinear_10m'][metric]
-        multi_val = avg_metrics['multi_10m'][metric]
-        uniform_val = avg_metrics['uniform_10m'][metric]
-        
-        if metric in ['psnr', 'ssim', 'scc']:
-            multi_gain = multi_val - bilinear_val
-            uniform_gain = uniform_val - bilinear_val
-            print(f"  {metric.upper():<6}: Multi-Res {multi_gain:+.4f}, Uniform {uniform_gain:+.4f}")
-        else:  # rmse, ergas, sid (lower is better, so positive gain means improvement)
-            multi_gain = bilinear_val - multi_val
-            uniform_gain = bilinear_val - uniform_val
-            print(f"  {metric.upper():<6}: Multi-Res {multi_gain:+.4f}, Uniform {uniform_gain:+.4f}")
+    avg_psnr_gain_10m = avg_metrics['sr_10m']['psnr'] - avg_metrics['bilinear_10m']['psnr']
+    avg_psnr_gain_20m = avg_metrics['sr_20m']['psnr'] - avg_metrics['bilinear_20m']['psnr']
+    avg_ssim_gain_10m = avg_metrics['sr_10m']['ssim'] - avg_metrics['bilinear_10m']['ssim']
+    avg_ssim_gain_20m = avg_metrics['sr_20m']['ssim'] - avg_metrics['bilinear_20m']['ssim']
     
-    print("\n20m Bands:")
-    for metric in metric_names:
-        bilinear_val = avg_metrics['bilinear_20m'][metric]
-        multi_val = avg_metrics['multi_20m'][metric]
-        uniform_val = avg_metrics['uniform_20m'][metric]
-        
-        if metric in ['psnr', 'ssim', 'scc']:
-            multi_gain = multi_val - bilinear_val
-            uniform_gain = uniform_val - bilinear_val
-            print(f"  {metric.upper():<6}: Multi-Res {multi_gain:+.4f}, Uniform {uniform_gain:+.4f}")
-        else:  # rmse, ergas, sid (lower is better)
-            multi_gain = bilinear_val - multi_val
-            uniform_gain = bilinear_val - uniform_val
-            print(f"  {metric.upper():<6}: Multi-Res {multi_gain:+.4f}, Uniform {uniform_gain:+.4f}")
+    print(f"\n  10m Bands: SR {'improves' if avg_psnr_gain_10m > 0 else 'degrades'} over bilinear by {abs(avg_psnr_gain_10m):.2f} dB PSNR, {abs(avg_ssim_gain_10m):.4f} SSIM")
+    print(f"  20m Bands: SR {'improves' if avg_psnr_gain_20m > 0 else 'degrades'} over bilinear by {abs(avg_psnr_gain_20m):.2f} dB PSNR, {abs(avg_ssim_gain_20m):.4f} SSIM")
     
-    print(f"\n{'═' * 105}")
-    print(f"Results saved to: {output_dir}")
-    print(f"{'═' * 105}")
+    if avg_psnr_gain_10m < 0 or avg_psnr_gain_20m < 0:
+        print(f"\n  ⚠️  WARNING: Model is performing WORSE than bilinear interpolation!")
+        print(f"      This indicates a potential issue with training or evaluation.")
+    else:
+        print(f"\n  ✅ Model is improving over bilinear baseline.")
+    
+    print(f"\n{'═' * 90}")
+    print(f"Visualizations saved to: {output_dir}")
+    print(f"{'═' * 90}")
 
 
 if __name__ == '__main__':

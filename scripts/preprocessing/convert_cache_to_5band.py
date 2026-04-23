@@ -68,22 +68,34 @@ import time
 
 
 def compute_frame_quality_stats(array: np.ndarray, 
-                                 zero_threshold: float = 0.05,
-                                 outlier_percentile: float = 99.5,
-                                 min_valid_fraction: float = 0.90) -> Dict:
+                                 zero_threshold: float = 100.0,
+                                 saturation_threshold: float = 8000.0,
+                                 max_saturation_fraction: float = 0.20,
+                                 outlier_percentile: float = 99.0,
+                                 absolute_outlier_threshold: float = 9000.0,
+                                 min_valid_fraction: float = 0.85,
+                                 max_mean_reflectance: float = 4000.0) -> Dict:
     """
     Compute LOCAL quality statistics for a downloaded frame (numpy array).
     
     This catches issues that server-side GEE coverage checking might miss:
     - Pixels filled with 0 from .unmask(0) on cloud/shadow masked areas
     - NaN values from failed computations
-    - Outlier values indicating atmospheric contamination (haze, thin clouds)
+    - Saturated/white pixels from clouds, haze, atmospheric contamination
+    - Outlier values indicating atmospheric issues
+    
+    IMPORTANT: This function expects RAW reflectance values in [0, 10000] range,
+    NOT normalized [0, 1] data. Call BEFORE normalization.
     
     Args:
-        array: numpy array (H, W, C) - single frame
-        zero_threshold: threshold below which pixels are considered "zero/bad"
-        outlier_percentile: percentile above which pixels are outliers
-        min_valid_fraction: minimum valid pixel fraction to pass quality check
+        array: numpy array (H, W, C) - single frame, raw reflectance [0, 10000]
+        zero_threshold: threshold below which pixels are "zero/masked" (default 100 for raw data)
+        saturation_threshold: threshold above which pixels are "saturated/white" (default 8000)
+        max_saturation_fraction: max fraction of saturated pixels allowed (default 0.20 = 20%)
+        outlier_percentile: percentile for relative outlier detection (default 99.0)
+        absolute_outlier_threshold: absolute threshold for outliers (default 9000)
+        min_valid_fraction: minimum valid pixel fraction to pass (default 0.85 = 85%)
+        max_mean_reflectance: max mean reflectance for good data (default 4000 - catches hazy frames)
     
     Returns:
         Dict with quality metrics and pass/fail flag
@@ -96,13 +108,19 @@ def compute_frame_quality_stats(array: np.ndarray,
     nan_fraction = nan_count / total_pixels
     
     # Count zero/near-zero pixels (from .unmask(0) on masked areas)
-    # Use small threshold to catch near-zeros from interpolation
+    # Using 100 as threshold for raw [0, 10000] data
     zero_mask = np.abs(array) < zero_threshold
     zero_count = np.sum(zero_mask & ~nan_mask)  # Don't double-count NaNs
     zero_fraction = zero_count / total_pixels
     
-    # Get valid pixels for outlier detection
-    valid_mask = ~nan_mask & ~zero_mask
+    # Count saturated/white pixels (clouds, haze, atmospheric contamination)
+    # These are pixels with very high reflectance across all bands
+    saturation_mask = (array > saturation_threshold) & ~nan_mask
+    saturation_count = np.sum(saturation_mask)
+    saturation_fraction = saturation_count / total_pixels
+    
+    # Get valid pixels for further analysis (not nan, not zero, not saturated)
+    valid_mask = ~nan_mask & ~zero_mask & ~saturation_mask
     valid_pixels = array[valid_mask]
     
     if len(valid_pixels) == 0:
@@ -110,20 +128,25 @@ def compute_frame_quality_stats(array: np.ndarray,
         return {
             'zero_frac': float(zero_fraction),
             'nan_frac': float(nan_fraction),
+            'saturation_frac': float(saturation_fraction),
             'outlier_frac': 0.0,
             'valid_frac': 0.0,
             'mean_refl': 0.0,
             'std_refl': 0.0,
-            'is_good': False
+            'is_good': False,
+            'fail_reason': 'no_valid_pixels'
         }
     
-    # Detect outliers (extremely high values often indicate atmospheric issues)
-    outlier_threshold = np.percentile(valid_pixels, outlier_percentile)
+    # Detect outliers using BOTH relative (percentile) and absolute thresholds
+    # This catches issues even in uniformly bright images
+    percentile_threshold = np.percentile(valid_pixels, outlier_percentile)
+    # Use the stricter of the two thresholds
+    outlier_threshold = min(percentile_threshold, absolute_outlier_threshold)
     outlier_mask = (array > outlier_threshold) & valid_mask
     outlier_count = np.sum(outlier_mask)
     outlier_fraction = outlier_count / total_pixels
     
-    # Final valid pixels (not nan, not zero, not outlier)
+    # Final valid pixels (not nan, not zero, not saturated, not outlier)
     final_valid_mask = valid_mask & ~outlier_mask
     valid_fraction = np.sum(final_valid_mask) / total_pixels
     
@@ -132,17 +155,33 @@ def compute_frame_quality_stats(array: np.ndarray,
     mean_refl = float(np.mean(final_valid_pixels)) if len(final_valid_pixels) > 0 else 0.0
     std_refl = float(np.std(final_valid_pixels)) if len(final_valid_pixels) > 0 else 0.0
     
-    # Quality decision
-    is_good = valid_fraction >= min_valid_fraction
+    # Quality decision with multiple criteria
+    fail_reasons = []
+    
+    # Check 1: Valid pixel fraction
+    if valid_fraction < min_valid_fraction:
+        fail_reasons.append(f'valid_frac={valid_fraction:.2%}<{min_valid_fraction:.0%}')
+    
+    # Check 2: Saturation fraction (catches uniformly white/hazy images)
+    if saturation_fraction > max_saturation_fraction:
+        fail_reasons.append(f'saturation={saturation_fraction:.2%}>{max_saturation_fraction:.0%}')
+    
+    # Check 3: Mean reflectance too high (catches overall hazy/bright frames)
+    if mean_refl > max_mean_reflectance:
+        fail_reasons.append(f'mean_refl={mean_refl:.0f}>{max_mean_reflectance:.0f}')
+    
+    is_good = len(fail_reasons) == 0
     
     return {
         'zero_frac': float(zero_fraction),
         'nan_frac': float(nan_fraction),
+        'saturation_frac': float(saturation_fraction),
         'outlier_frac': float(outlier_fraction),
         'valid_frac': float(valid_fraction),
         'mean_refl': mean_refl,
         'std_refl': std_refl,
-        'is_good': is_good
+        'is_good': is_good,
+        'fail_reason': '; '.join(fail_reasons) if fail_reasons else None
     }
 
 
@@ -151,9 +190,12 @@ def compute_combined_frame_quality(lr_frame: np.ndarray, hr_frame: np.ndarray,
     """
     Compute combined quality stats for a frame (both LR and HR).
     
+    IMPORTANT: Expects RAW reflectance values in [0, 10000] range.
+    Call BEFORE normalization to [0, 1].
+    
     Args:
-        lr_frame: LR array (H, W, C)
-        hr_frame: HR array (H, W, C)
+        lr_frame: LR array (H, W, C) - raw reflectance [0, 10000]
+        hr_frame: HR array (H, W, C) - raw reflectance [0, 10000]
         frame_idx: Frame index for logging
     
     Returns:
@@ -162,17 +204,29 @@ def compute_combined_frame_quality(lr_frame: np.ndarray, hr_frame: np.ndarray,
     lr_stats = compute_frame_quality_stats(lr_frame)
     hr_stats = compute_frame_quality_stats(hr_frame)
     
+    # Collect all fail reasons
+    fail_reasons = []
+    if lr_stats.get('fail_reason'):
+        fail_reasons.append(f"LR: {lr_stats['fail_reason']}")
+    if hr_stats.get('fail_reason'):
+        fail_reasons.append(f"HR: {hr_stats['fail_reason']}")
+    
     return {
         'frame_idx': frame_idx,
         'lr_zero_frac': lr_stats['zero_frac'],
         'lr_nan_frac': lr_stats['nan_frac'],
+        'lr_saturation_frac': lr_stats.get('saturation_frac', 0.0),
         'lr_outlier_frac': lr_stats['outlier_frac'],
         'lr_valid_frac': lr_stats['valid_frac'],
+        'lr_mean_refl': lr_stats.get('mean_refl', 0.0),
         'hr_zero_frac': hr_stats['zero_frac'],
         'hr_nan_frac': hr_stats['nan_frac'],
+        'hr_saturation_frac': hr_stats.get('saturation_frac', 0.0),
         'hr_outlier_frac': hr_stats['outlier_frac'],
         'hr_valid_frac': hr_stats['valid_frac'],
-        'is_good': lr_stats['is_good'] and hr_stats['is_good']
+        'hr_mean_refl': hr_stats.get('mean_refl', 0.0),
+        'is_good': lr_stats['is_good'] and hr_stats['is_good'],
+        'fail_reason': '; '.join(fail_reasons) if fail_reasons else None
     }
 
 

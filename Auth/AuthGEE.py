@@ -7,13 +7,20 @@ from datetime import datetime as _dt
 from datetime import datetime, timedelta
 from typing import Tuple, Dict, List
 
+import os as _os
+_auth_dir = _os.path.dirname(_os.path.abspath(__file__))
 credentials = ee.ServiceAccountCredentials(
     'stas-50@remotesensingeduart.iam.gserviceaccount.com',
-    '/media/eamurciab/TOSHIBA_EXT1/PhD/SR/Auth/remotesensingeduart-222d07dd6689.json'
+    _os.path.join(_auth_dir, 'remotesensingeduart-222d07dd6689.json')
 )
-ee.Initialize(credentials)
+ee.Initialize(credentials, project='remotesensingeduart')
 
+# Planet imagery collections
 PLANET_COLLECTION_ID = 'projects/remotesensingeduart/assets/testSTAs'
+PLANET_COLLECTION_ID_FALLBACK = 'projects/ee-eeamurciabb/assets/testSTAs'
+PLANET_COLLECTION_ID_ADDITIONAL = 'projects/stasadditionalfree/assets/testSTAs_ic'
+
+# Sentinel-2 collection
 S2_COLLECTION_ID = 'COPERNICUS/S2_SR_HARMONIZED'
 
 # --------- Helpers (fixed) ---------
@@ -343,23 +350,41 @@ def _match_dates_with_tolerance_nn(s2_map, pl_map, days_tol=12):
 
 
 # --------- Main pairing function (uses scores) ----------
-def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallback=None):
+def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallback=None, planet_coll_id_additional=None,
+               s2_cloud_pct_max=60, s2_aoi_cloud_frac_max=0.1, planet_q_cloud_max=20,
+               lightweight=False):
 
-    s2 = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-        .filterBounds(aoi)
-        .filterDate(start_date, end_date)
-        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 60))
-        .map(make_add_aoi_cloud_fraction(aoi))
-        .filter(ee.Filter.notNull(['AOI_CLOUD_FRAC']))         # guard against null
-        .filter(ee.Filter.lt('AOI_CLOUD_FRAC', 0.1))
-        .map(_add_common_fields)
-        .map(_add_s2_quality)
-        .map(_add_s2_score)
-        .map(_add_pref_id))
-    s2_best = _best_per_day(s2)
+    if lightweight:
+        # Lightweight mode: skip heavy AOI-level reduceRegion operations.
+        # Uses scene-level CLOUDY_PIXEL_PERCENTAGE only (no per-image AOI cloud fraction).
+        # Uses simple _best_per_day instead of planet_best_per_day_adaptive.
+        # Suitable when tile-level coverage checks handle quality downstream.
+        print("   [lightweight] Skipping AOI-level cloud fraction and adaptive mosaicking")
+        s2 = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+            .filterBounds(aoi)
+            .filterDate(start_date, end_date)
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', s2_cloud_pct_max))
+            .map(_add_common_fields)
+            .map(_add_s2_quality)
+            .map(_add_s2_score)
+            .map(_add_pref_id))
+        s2_best = _best_per_day(s2)
+    else:
+        s2 = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+            .filterBounds(aoi)
+            .filterDate(start_date, end_date)
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', s2_cloud_pct_max))
+            .map(make_add_aoi_cloud_fraction(aoi))
+            .filter(ee.Filter.notNull(['AOI_CLOUD_FRAC']))         # guard against null
+            .filter(ee.Filter.lt('AOI_CLOUD_FRAC', s2_aoi_cloud_frac_max))
+            .map(_add_common_fields)
+            .map(_add_s2_quality)
+            .map(_add_s2_score)
+            .map(_add_pref_id))
+        s2_best = _best_per_day(s2)
 
 
-    # MERGE BOTH REPOSITORIES (not fallback) to get maximum coverage
+    # MERGE ALL REPOSITORIES to get maximum coverage
     def prep_planet_collection(coll_id, conf_threshold=60):
         """Prepare a Planet collection with all filters and scores"""
         return (ee.ImageCollection(coll_id)
@@ -368,7 +393,7 @@ def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallbac
             .map(_add_common_fields)  
             .map(_add_planet_quality) 
             .map(_add_planet_score)
-            .filter(ee.Filter.lt('q_cloud', 20))                 
+            .filter(ee.Filter.lt('q_cloud', planet_q_cloud_max))                 
             .map(make_add_udm_mask_and_score_for_aoi(aoi, conf_threshold=conf_threshold))
             .map(_add_pref_id))
     
@@ -376,7 +401,8 @@ def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallbac
     try:
         pl_primary = prep_planet_collection(planet_coll_id, conf_threshold=60)
         primary_size = pl_primary.size().getInfo()
-    except:
+    except Exception as _e:
+        print(f"   [warn] Primary collection failed: {_e}")
         primary_size = 0
         pl_primary = None
     
@@ -387,55 +413,89 @@ def find_pairs(aoi, start_date, end_date, planet_coll_id, planet_coll_id_fallbac
         try:
             pl_secondary = prep_planet_collection(planet_coll_id_fallback, conf_threshold=60)
             secondary_size = pl_secondary.size().getInfo()
-        except:
+        except Exception as _e:
+            print(f"   [warn] Fallback collection failed: {_e}")
             secondary_size = 0
             pl_secondary = None
     
-    # MERGE both collections if both have data
-    if primary_size > 0 and secondary_size > 0:
-        print(f"   ✅ MERGING both repositories: primary={primary_size}, secondary={secondary_size} images")
-        pl_prepped = pl_primary.merge(pl_secondary)
-    elif primary_size > 0:
-        print(f"   Using primary collection only: {primary_size} images")
-        pl_prepped = pl_primary
-    elif secondary_size > 0:
-        print(f"   Using secondary collection only: {secondary_size} images")
-        pl_prepped = pl_secondary
+    # Try additional/tertiary collection if provided
+    tertiary_size = 0
+    pl_tertiary = None
+    if planet_coll_id_additional:
+        try:
+            pl_tertiary = prep_planet_collection(planet_coll_id_additional, conf_threshold=60)
+            tertiary_size = pl_tertiary.size().getInfo()
+        except Exception as _e:
+            print(f"   [warn] Additional collection failed: {_e}")
+            tertiary_size = 0
+            pl_tertiary = None
+    
+    # MERGE all collections that have data
+    collections_to_merge = []
+    sizes = []
+    if primary_size > 0:
+        collections_to_merge.append(pl_primary)
+        sizes.append(f"primary={primary_size}")
+    if secondary_size > 0:
+        collections_to_merge.append(pl_secondary)
+        sizes.append(f"secondary={secondary_size}")
+    if tertiary_size > 0:
+        collections_to_merge.append(pl_tertiary)
+        sizes.append(f"additional={tertiary_size}")
+    
+    if len(collections_to_merge) == 0:
+        raise ValueError(f"No Planet data found in any collection for {start_date} to {end_date}")
+    elif len(collections_to_merge) == 1:
+        print(f"   Using single collection: {sizes[0]} images")
+        pl_prepped = collections_to_merge[0]
     else:
-        raise ValueError(f"No Planet data found in either collection for {start_date} to {end_date}")
+        print(f"   ✅ MERGING {len(collections_to_merge)} repositories: {', '.join(sizes)} images")
+        pl_prepped = collections_to_merge[0]
+        for coll in collections_to_merge[1:]:
+            pl_prepped = pl_prepped.merge(coll)
         
-
-    pl_best = (planet_best_per_day_adaptive(pl_prepped, aoi)
-        .map(make_tag_has_data(aoi, scale=50, tileScale=2))
-        .filter(ee.Filter.gt('has_data', 0))
-    )
+    print(f"   Processing merged Planet collection...")
+    if lightweight:
+        # Simple best-per-day using quality mosaic (not single strips)
+        pl_best = planet_best_per_day(pl_prepped)
+        print(f"   [lightweight] Using quality-mosaic best-per-day (no adaptive mosaicking)")
+    else:
+        pl_best = (planet_best_per_day_adaptive(pl_prepped, aoi)
+            .map(make_tag_has_data(aoi, scale=50, tileScale=2))
+            .filter(ee.Filter.gt('has_data', 0))
+        )
+    print(f"   Planet processing pipeline defined, fetching data...")
 
     # Dates - with retry logic for GEE rate limiting
     import time as _time_module
-    def _getInfo_with_retry(ee_obj, max_retries=5, initial_delay=10):
+    def _getInfo_with_retry(ee_obj, max_retries=5, initial_delay=10, label="data"):
         """Get info from EE object with exponential backoff on rate limiting."""
+        print(f"      Fetching {label}...", end=" ", flush=True)
         for attempt in range(max_retries):
             try:
-                return ee_obj.getInfo()
+                result = ee_obj.getInfo()
+                print(f"✓")
+                return result
             except Exception as e:
                 if "Too many concurrent aggregations" in str(e) and attempt < max_retries - 1:
                     delay = initial_delay * (2 ** attempt)  # Exponential backoff
-                    print(f"   ⏳ GEE rate limit hit, waiting {delay}s (attempt {attempt + 1}/{max_retries})...")
+                    print(f"\n   ⏳ GEE rate limit hit, waiting {delay}s (attempt {attempt + 1}/{max_retries})...")
                     _time_module.sleep(delay)
                 else:
+                    print(f"✗")
                     raise
     
     # Fetch S2 data first (lighter computation)
-    s2_dates = _getInfo_with_retry(s2_best.aggregate_array('date_key'))
-    s2_ids   = _getInfo_with_retry(s2_best.aggregate_array('id_pref'))
+    s2_dates = _getInfo_with_retry(s2_best.aggregate_array('date_key'), label="S2 dates")
+    s2_ids   = _getInfo_with_retry(s2_best.aggregate_array('id_pref'), label="S2 IDs")
 
     # Small delay to let GEE aggregations complete before heavy Planet fetch
     _time_module.sleep(2)
     
     # Planet fetch triggers heavy computations from planet_best_per_day_adaptive
-    pl_dates = _getInfo_with_retry(pl_best.aggregate_array('date_key'))
+    pl_dates = _getInfo_with_retry(pl_best.aggregate_array('date_key'), label="Planet dates (heavy)")
     _time_module.sleep(1)  # Brief pause between heavy calls
-    pl_ids   = _getInfo_with_retry(pl_best.aggregate_array('id_pref'))
+    pl_ids   = _getInfo_with_retry(pl_best.aggregate_array('id_pref'), label="Planet IDs")
 
 
 

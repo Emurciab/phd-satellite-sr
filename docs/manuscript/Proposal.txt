@@ -1,0 +1,1199 @@
+\documentclass[a4paper,fleqn]{cas-sc}
+
+\usepackage{fancyhdr} % Include the fancyhdr package
+
+\makeatletter
+\def\ps@pprintTitle{%
+ \let\@oddfoot\relax % Remove the footer for odd pages
+ \let\@evenfoot\relax % Remove the footer for even pages
+% \let\@evenhead\relax % Remove the header for even pages
+}
+\makeatother
+
+% Apply the same style for subsequent pages
+\pagestyle{fancy}
+\fancyhf{} % Clear all header and footer fields
+%\renewcommand{\headrulewidth}{0pt} % Remove header line
+\renewcommand{\footrulewidth}{0pt} % Remove footer line
+
+
+\usepackage[natbibapa]{apacite}
+\bibliographystyle{apacite}
+
+
+\usepackage{url} 
+\usepackage{lineno}
+\usepackage{soul}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage[binary-units=true]{siunitx}
+\usepackage{graphicx}
+\usepackage[figurename=Fig.,labelfont=bf,labelsep=period]{caption}
+\usepackage{float} 
+\usepackage{subcaption}
+\renewcommand\thesubfigure{(\alph{subfigure})}
+\usepackage{hyphenat}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsbsy}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{optidef}
+\usepackage{appendix}
+\usepackage{calc}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{blindtext}
+\usepackage{marginnote}
+\usepackage[all]{nowidow}
+\usepackage{booktabs,tabularx}
+\usepackage{placeins}
+\setlength{\marginparwidth}{3cm}
+\usepackage{paralist}
+\providecommand{\norm}[1]{\lVert#1\rVert}
+\providecommand{\norm}[1]{\lVert#1\rVert}
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{lemma}{Lemma}
+\newtheorem{remark}{Remark}
+\newtheorem{definition}{Definition}
+\newtheorem{proof}{Proof}
+\newcommand*{\Scale}[2][4]{\scalebox{#1}{$#2$}}%
+\newcommand*{\Resize}[2]{\resizebox{#1}{!}{$#2$}}%
+
+\def\tsc#1{\csdef{#1}{\textsc{\lowercase{#1}}\xspace}}
+\tsc{WGM}
+\tsc{QE}
+\tsc{EP}
+\tsc{PMS}
+\tsc{BEC}
+\tsc{DE}
+
+\usepackage{setspace}
+
+
+\makeatletter
+\def\ps@pprintTitle{%
+  \let\@oddhead\@empty
+  \let\@evenhead\@empty
+  \let\@oddfoot\@empty
+  \let\@evenfoot\@empty
+}
+\makeatother
+
+
+\begin{document}
+
+
+\linenumbers
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+\linespread{1.5} 
+\shorttitle{Improving Model Performance and Understanding of Constructed Wetlands Systems}
+
+\shortauthors{Murcia and Guzmán}
+
+\title [mode = title]{Remote Sensing and AI for Spatiotemporal Monitoring of Aquatic Vegetation to Improve Management and Nutrient Modeling in Constructed Wetlands}
+
+
+\newpage
+
+\tnotemark[1]
+
+\author[1]{Eduart Murcia}[orcid=0000-0002-7862-0926]
+\ead{emurciabotache@ufl.edu}
+
+\author[1]{Sandra M. Guzmán (Chair)}[orcid=0000-0003-0735-7179]
+
+\author[2]{Elise Morrison (Co-Chair)}[orcid=0000-0003-2569-4259]
+
+\author[3]{Stefan Gerber}[orcid=0000-0002-1474-4188]
+
+\author[4]{Jasmeet Judge}[orcid=0000-0001-9849-7411]
+
+\author[5]{Thomas James}[orcid=0000-0001-9849-7411]
+
+%\ead{sandra.guzmangut@ufl.edu}
+
+
+
+\affiliation[1]{organization={University of Florida, Department of Agricultural and Biological Engineering, Indian River Research and Education Center},
+    city={Fort Pierce, Florida},
+    country={USA}}
+
+\affiliation[2]{organization={University of Florida, Department of Environmental Engineering Sciences},
+    city={Gainesville, Florida},
+    country={USA}}
+
+\affiliation[3]{organization={University of Florida, Department of Soil, Water, and Ecosystem Sciences},
+    city={Gainesville, Florida},
+    country={USA}}
+
+\affiliation[4]{organization={University of Florida, Department of Agricultural and Biological Engineering},
+    city={Gainesville, Florida},
+    country={USA}}
+
+\affiliation[4]{organization={South Florida Water Management District},
+    city={West Palm Beach, Florida},
+    country={USA}}
+
+% \affiliation[1]{organization={University of Florida, Department of Agricultural and Biological Engineering, Indian River Research and Education Center}, city={Florida}, country={USA}}
+
+\cortext[1]{Corresponding author:}
+
+\begin{abstract}
+\doublespacing
+
+\begin{comment}
+    Stormwater Treatment Areas (STAs) are engineered wetlands designed to restore original oligotrophic conditions in the Florida Everglades Protection Area by reducing phosphorus (P) levels from agricultural and urban sources. Over the last 24 years, the STAs have significantly decreased P loads and retained over 3,400 tons of total P. However, challenges to further improve the STAs’ performance and to meet regulatory P concentrations remain due to several internal and external factors, including internal P loading, uncontrolled die-offs/blooms of aquatic vegetation species, and other phenomena—some of which only occur at ultra low P concentrations. 
+
+
+    
+\end{comment}
+
+
+Stormwater Treatment Areas (STAs) are engineered wetlands built to reduce phosphorus (P) loads to the Florida Everglades, but despite retaining more than 3,400 tons of total P over 24 years, they have not consistently achieved the strict Water Quality Based Effluent Limit (WQBEL). Mechanistic models have been developed to represent P cycling across pools, ecosystem components, and processes, and have benefited from long-term monitoring, but their accuracy and transferability to other STAs depend on how well parameters are constrained. Current approaches require recalibration to correct errors, particularly for vegetation-associated parameters, and lack efficient ways to incorporate spatial heterogeneity or observational data into parameterization. At the same time, consistent data collection on aquatic vegetation remains difficult due to the large extent of STAs, costs and limitations of field and drone surveys, and the insufficient spatial or temporal resolution of open-source satellite imagery. While commercial providers offer higher resolution products, budget constraints limit their use, and single-source monitoring strategies have proven inadequate. As a result, datasets that provide spatio-temporally consistent information on vegetation metrics needed for model calibration are still missing. This research addresses these gaps by developing a remote-sensing–informed framework that integrates super-resolution to upsample frequent lower-resolution imagery, observation models to map RS features to vegetation state variables, causal discovery to identify connections among hydrologic, water quality, and vegetation features, and a multi-objective probabilistic calibration routine. The central hypothesis is that remote sensing data can be transformed to correct model state trajectories and support probabilistic calibration, improving parameter estimation, reducing error compensation, and enhancing model transferability and uncertainty quantification across STAs.
+\end{abstract}
+
+
+\begin{keywords}
+Biochemistry \sep Causal Learning \sep Change Detection \sep Hydrology \sep Machine Learning \sep Phosphorous \sep Satellite Imagery \sep Wetlands
+\end{keywords}
+
+\maketitle
+\thispagestyle{empty}
+
+
+\small
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+\begin{longtable}{@{}p{0.18\textwidth}p{0.77\textwidth}@{}}
+\caption{Acronyms}
+\label{tab:acronyms}\\
+\toprule
+\textbf{Acronym} & \textbf{Description} \\
+\midrule
+\endfirsthead
+
+\multicolumn{2}{r}{\small\itshape (continued)}\\
+\toprule
+\textbf{Acronym} & \textbf{Description} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{2}{r}{\small\itshape (continued on next page)}\\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+ACOLITE & Atmospheric Correction Algorithms for Aquatic Applications of Landsat and Sentinel \\
+BGC & Biogeochemical model \\
+cCCM & Causalized Convergent Cross Mapping \\
+CASM & Bioenergetics-based food-web/ecosystem model \\
+CCM & Convergent Cross Mapping \\
+CGNN & Causal Generative Neural Network \\
+CGTST & Causality-Gated Time Series Transformer \\
+Chl-a & Chlorophyll-a \\
+DAG & Directed Acyclic Graphs \\
+DBHYDRO & The South Florida Water Management District's corporate environmental database \\
+DL & Deep Learning \\
+DMSTA & Dynamic Model for STAs \\
+DTW & Dynamic Time Wrapping \\
+EAV & Emergent Aquatic Vegetation \\
+EDA & Exploratory Data Analysis \\
+ERGAS & Error Relative Global Dimension Synthesis \\
+FAV & Floating Aquatic Vegetation \\
+FCI & Fast Causal Inference \\
+FW & Flow Ways \\
+FWMC & Flow-Weighted Mean Concentration \\
+GC & Granger Causality \\
+GEE & Google Earth Engine \\
+GIS & Geographic Information Systems \\
+GRU & Gated Recurrent Unit \\
+LAI & Leaf Area Index \\
+LiDAR & Light Detection and Ranging \\
+LiNGAM & Linear Non-Gaussian Acyclic Model \\
+LOEM & Lake Okeechobee Environment Model \\
+LOEM-CW & Lake Okeechobee Environment Model Adapted to the STAs \\
+MCD & Mixed Causal Discovery \\
+ML & Machine Learning \\
+MLP & Multi Layer Perceptron \\
+NLTS & Nonlinear Time Series \\
+NSE & Nash-Sutcliffe Efficiency \\
+ODE & Ordinary Differential Equation \\
+P & Phosphorus \\
+PCMCI & Momentary Conditional Independence PC \\
+PSNR & Peak Signal-to-Noise Ratio \\
+QAD & Questions-Assumptions-Data \\
+QC & Quality Control \\
+R2 & Coefficient of Determination \\
+RNN & Recurrent Neural Network \\
+RS & Remote Sensing \\
+RSMWQ & Regional Simulation Model with a transport/reaction component \\
+SAR & Synthetic Aperture Radar \\
+SAV & Submerged Aquatic Vegetation \\
+SEM & Structural Equation Modeling \\
+SFWMD & South Florida Water Management District \\
+SLIC & Simple Linear Iterative Clustering \\
+SSIM & Structural Similarity Index \\
+STAs & Stormwater Treatment Areas \\
+TP & Total Phosphorus \\
+UAV & Unmanned Aerial Vehicle \\
+WQBEL & Water Quality Based Effluent Limit \\
+\end{longtable}
+
+
+\section{Background and Research Gap}\label{sec:Background_and_Research Gap}
+The background and research gap from this research have been incorporated into a manuscript that is in the process of being submitted to a Journal. A draft copy of it can be found in this
+\href{https://www.overleaf.com/read/sydzfrtjyxgg#5e0ef2}{link}.
+
+\newpage
+
+Stormwater Treatment Areas (STAs) are engineered tropical wetlands designed to help restore the oligotrophic conditions of the Florida Everglades Protection Area, which were degraded by decades of agricultural and urban discharges. Over the last 31 years, the STAs have retained more than 3,721 metric tons of total phosphorus (TP), reduced the TP load by 78\%, and enabled outflow TP flow-weighted mean concentrations (FWMC) of at least 25 $\mu$g/L. STAs retain P through biological uptake by macrophytes and periphyton, particle settling, soil accretion, and co-precipitation driven by chemical reactions \citep{influencebhomia2018}. The SFWMD continues to deploy management and modeling efforts to further reduce TP concentrations (STA-1E, -1W, -2, and -3/4, are currently at $20\mu$g/L or less) to meet the Water Quality Based Effluent Limit (WQBEL) (i.e., an annual flow-weighted mean of $13,\mu$g/L in more than three out of five consecutive water years) and to evaluate the effects of environmental change and management strategies \citep{SFWMD2024_modelreport}.
+
+Research has focused on developing modeling frameworks that represent the physical, chemical, and biological processes driving P cycling under ultra-low concentrations (i.e., $<20,\mu$g/L), leverage historical system data to capture trends and patterns, and remain computationally tractable \citep{LARIOS2024107131,datadrivenjuston2019,spatiotemporalpaudel2011,SFWMD2024_modelreport}. For instance, the most recent model, co-developed by the SFWMD, was conceptualized by disaggregating P cycling across pools (dissolved and particulate; organic and inorganic), ecosystem components (macrophytes, periphyton, floc, soil, water), and processes (deposition, uptake, precipitation, re-suspension, hydrolysis, diffusion), represented as state variables and process rate equations. Long-term monitoring data collected from STA-2 FW-1 were used for model parameterization, calibration, and validation.
+
+While these frameworks have advanced process representation and benefited from long-term monitoring, the accuracy and generalization of model results to other STAs ultimately depend on how well parameters are constrained while acknowledging that in complex systems, multiple parameter sets can produce acceptable outputs due to compensatory interactions (i.e., equifinality) \citep{JUSTON2013135,BEVEN200111}. This is illustrated in \citet{SFWMD2024_modelreport}, where parameters were adjusted to correct large overestimations of particulate organic P. These recalibration needs underscore the importance of carefully selecting parameters that govern the dynamics of the state variables within the model. In addition, parameterization should account for spatial variability within the system, while preventing excessive local parameterization that would increase equifinality issues and make the model descriptive rather than predictive. For the STAs, the SFWMD addressed spatial structure in the bioenergetics-based food-web/ecosystem model (CASM) by simulating multiple segments with segment-specific states and drivers; core producer parameter values are specified globally across segments. Granted an optimal aggregation scale, these models could benefit from observation-informed parameterization and data assimilation to correct trajectories in the current specification of state variables, accounting for the phenological and spatial heterogeneity of vegetation states, as well as disturbances that are not explicitly represented in the current model, and to establish efficient multi-objective routines for estimating parameters in the calibration stage. This would help reduce compensating errors carried over to other state variables (e.g., biotic variables) and improve model transferability to other STAs, which is necessary given the marked differences among STAs in performance, biogeochemistry, hydrology, soils, inflow water, weather, configuration, and vegetation composition.
+
+However, consistent data collection from aquatic vegetation communities that could be used to support model parameterization, calibration, and validation across the STAs remains difficult due to a combination of reasons, including large areas of study; high demands on spatial and spectral resolution to map temporal changes in phenological features or model metrics such as biomass and carbon storage; atmospheric and water-background interference on optical sensors; similar backscattering among species or with open water for radar sensors; difficult access to the inner sections of the STAs; temporal-scale mismatches among multiple data sources; and budget constraints.
+
+Field surveys are necessary but insufficient for monitoring the spatiotemporal changes of aquatic vegetation species, as they are labor-intensive and can only be deployed at specific points within the wetlands. Drone monitoring has been considered a complementary system in the STAs, but the costs of consistently flying drones at medium and large scales (especially when using hyperspectral or LiDAR sensors) have been limiting. Satellite imagery-based monitoring has been used at larger scales; however, the spatial resolution and temporal availability of open-source imagery have limited its use in obtaining the data consistency needed to compile inputs for modeling and management purposes \citep{applyingzhang2017}. Commercial satellite providers (WorldView, PlanetScope, Pleiades) offer optical imagery with the spatial detail and revisit that help in transition zones and for small features, and newer sensors bring useful red-edge bands \citep{comparison_vandeventer_2022,mapping_rupasinghe_2021,modeling_belloli_2025,advancing_hemati_2025}; however, cost remains a barrier. Radar data, useful for overcoming atmospheric interference affecting optical sensors, has limited applicability due to costs (for commercial sources), spatial or temporal coverage (for open-source sources), minimum order quantity, and processing requirements \citep{rsSAR}.
+
+As technical and economic constraints limit the use of single-source strategies for aquatic vegetation monitoring in constructed wetland systems, researchers and managers have adopted a mix of approaches, including sporadic drone surveys, field visits, open-source and commercial satellite imagery (optical and radar), LiDAR, and helicopter surveys. These efforts have helped address several management needs, including maintaining species inventories via classification maps, controlling undesired growth or die-offs, and detecting floating islands. However, for model-oriented data collection, there is still a need for datasets that provide the required information at appropriate spatial and temporal resolutions.
+
+To meet this need, a multi-source framework that delivers data for key model metrics (e.g., biomass, carbon, and nutrient storage) at spatial and temporal resolutions that match the pace of phenological change in target aquatic-vegetation species, and that remains accessible given the budget constraints common in constructed wetland systems, is needed. Such a framework would provide data to constrain parameter estimates for calibrating wetland biogeochemical models (including the model co-developed by the SFWMD) and for conducting formal global sensitivity analysis and uncertainty analysis. By linking observational data with model parameters and propagating measurement uncertainty, calibration can reduce reliance on testing discrete grids of parameter values across predefined ranges and on one-at-a-time sensitivity analyses. This, in turn, can improve transferability to other STAs and how the model represents phosphorus cycling outside the original calibration site.
+
+\section{Objectives \& Hypotheses} \label{sec:Research_Aim_Central_Hypothesis_and_Research_Capabilities}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\textwidth]{Methodology.png}
+    \caption[Methodology] {Summary of objectives and expected research outcomes.} 
+    \label{sec:fig:1}
+\end{figure}
+
+
+\subsection{Main Objective and Central Hypothesis} \label{sec:Specific_Objectives}
+
+The main objective of this research is to develop and test a remote-sensing–informed parameterization, data assimilation, and probabilistic calibration framework for aquatic vegetation state variables and process-terms in constructed wetland biogeochemical models. We will use the BGC and CASM models co-developed by the SFWMD. The framework will leverage instances of high spatial resolution imagery to train larger sets of lower spatial resolution, solving the limited temporal availability of the former when budget restrictions exist, and creating the necessary time series data to inform the parameterization of the models. Then, observation operators will be defined to map RS features (e.g., fractional cover, leaf area index, spectral indices) to model variables (e.g., biomass carbon, photosynthetic rate) and then aggregated to pre-defined spatial units (e.g., flow-ways). This will produce the necessary time series for data assimilation. The aggregates will then be incorporated into the existing models either as time- and segment-dependent scalars (of the initial parameters) or nudging terms (to correct trajectories on the state's ODE) in the equations where aquatic vegetation state variables were defined in the BGC and CASM models. For calibration, we will implement a multi-objective probabilistic approach using water-quality time series and vegetation time series targets that will reduce reliance on grid searches and provide uncertainty estimation. For this, we will use causal discovery as a tool to inform prior selection of the probabilistic calibration
+
+My central hypothesis is that remote sensing data can be transformed and used to correct trajectories (nudge) of state variables in mechanistic biogeochemical and hydrological models, and to develop formal probabilistic calibration routines that can help improve the estimation of model parameters. This will be essential to reduce error compensation among the biotic and abiotic state variables defined in the models, increase model transferability to other STAs/flow-ways, and have formal uncertainty estimates from the models' outputs. The proposed methodology can help remove some accessibility barriers that end users with limited budgets face, and increase the value of RS products that have been collected unsystematically, to produce a reproducible methodology to guide the model parameterization and calibration while respecting the mechanistic principles of the models.
+
+\pagebreak
+
+\subsection{Specific Objective 1}
+
+Create dense time series of high-resolution and low-cost RS imagery from the STAs. My central hypothesis is that a super-resolution-based framework can deliver higher-detail, higher-frequency estimates needed to inform biogeochemical models about key vegetation dynamics, without continuous high-resolution acquisitions (i.e., UAV, commercial satellite imagery), while preserving spectral fidelity.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\textwidth]{Obj1.png}
+    \caption[Methodology] {Chapter 1} 
+    \label{sec:fig:1}
+\end{figure}
+
+\subsubsection{Methodology}
+
+The study area includes all five STAs (STA-1E, STA-1W, STA-2, STA-3/4, and STA-5/6). All STAs were included to maximize data availability for model training and to ensure that the SR framework generalizes across sites with different vegetation composition, hydrology, and geometry.
+
+\paragraph{\textbf{Stage 1 — Sentinel-2 / PlanetScope SR (Completed)}}
+
+\subparagraph{Data acquisition and preprocessing.}
+PlanetScope SuperDove scenes (3~m resolution; five spectral bands: Blue, Green, Red, NIR, Red~Edge) were ingested into a Google Earth Engine (GEE) repository via Planet's Education and Research Program. For each site-year combination, a composite quality score combining the cloud/shadow fraction derived from the UDM2 mask (confidence threshold $\geq 80\%$), the solar-zenith-angle proximity to solar noon, and acquisition timestamp as a tie-breaker was used to select the best-quality daily mosaic per date. Each PlanetScope date was paired to a Sentinel-2 SR Harmonized (\texttt{COPERNICUS/S2\_SR\_HARMONIZED}) acquisition within a $\pm7$-day tolerance using nearest-neighbour date matching, retaining only dates with an area-of-interest cloud fraction below 10\% in both sensors. Image co-registration was performed using AROSICS \citep{scheffler2017}, which estimates and applies local, sub-pixel polynomial shifts aligning the PlanetScope image (HR) to the Sentinel-2 image (LR reference). Spectral harmonization was applied band-wise via histogram matching, transferring the PlanetScope reflectance distribution towards that of Sentinel-2, resulting in a 99.9\% reduction in inter-sensor spectral mismatch. All processing was implemented server-side in GEE where possible and downloaded in parallelized chunks (up to 12 concurrent workers on a $9 \times 9$ spatial grid) to minimize transfer time and memory demands.
+
+Registered pairs were tiled in a non-overlapping spatial grid, producing:
+
+\begin{itemize}
+    \item \textbf{HR target}: $256 \times 256$ pixel tiles at 3~m (PlanetScope, 3-band: R, G, NIR as the core training target bands matching Sentinel-2 10~m equivalents, plus the 20~m-equivalent Red~Edge band where required).
+    \item \textbf{LR input (10~m)}: $77 \times 77$ pixel Sentinel-2 tiles (3 bands: B, G, R).
+    \item \textbf{LR input (20~m)}: $38 \times 38$ pixel Sentinel-2 tiles (2 bands: NIR, Red~Edge).
+\end{itemize}
+
+Each sample consists of a temporal sequence of three consecutive cloud-acceptable acquisition dates within the same year, providing the multi-frame context required for temporal attention. The final dataset contains 6,839 temporal sequences (5,472 training; 1,367 test; 80/20 stratified split by site-year), with contributions from all five STAs across years 2022–2024 (Table~\ref{tab:dataset_stats}).
+
+\begin{table}[h!]
+\centering
+\caption{Training dataset breakdown by site and year.}
+\label{tab:dataset_stats}
+\begin{tabular}{llr}
+\hline
+\textbf{Site} & \textbf{Year(s)} & \textbf{Sequences} \\ \hline
+STA-1E & 2022--2023 (2 yr) & 941 \\
+STA-1W & 2023--2024 (2 yr) & 436 \\
+STA-2  & 2022--2024 (3 yr) & 1,694 \\
+STA-3/4 & 2023--2024 (2 yr) & 492 \\
+STA-5/6 & 2023--2024 (2 yr) & 3,276 \\ \hline
+\textbf{Total} & & \textbf{6,839} \\ \hline
+\end{tabular}
+\end{table}
+
+\subparagraph{Model architecture.}
+A novel multi-resolution, multi-output temporal attention SR network was designed to jointly super-resolve the 10~m and 20~m Sentinel-2 bands to 3~m resolution (scale factor ${\approx}3.33\times$). The network comprises four main modules:
+
+\begin{enumerate}
+    \item \textbf{Per-frame encoder}: Depthwise separable convolutions with GroupNorm and GELU activations; CBAM (Convolutional Block Attention Module) spatial–channel attention inserted every two residual blocks.
+    \item \textbf{Temporal cross-attention module}: Per-frame global-pooling embeddings transformed by a shared MLP; softmax-normalized attention weights used to compute a weighted sum of frame features, followed by a fusion convolution.
+    \item \textbf{Spectral consistency module}: Squeeze-and-Excitation style channel recalibration to preserve inter-band relationships after temporal fusion.
+    \item \textbf{Progressive upsampler}: PixelShuffle $\times$2 followed by adaptive bilinear interpolation to the exact target resolution, with a physics-constrained sigmoid output head that clamps reflectances to the $[0,1]$ range.
+\end{enumerate}
+
+Two learning paradigms were evaluated:
+
+\begin{itemize}
+    \item \textit{Residual learning}: the network predicts a correction $\Delta$ added to a bilinear-interpolated baseline ($\hat{I}_\text{SR} = I_\text{bilinear} + \Delta$), providing a stable initialization.
+    \item \textit{Direct learning}: the network maps LR frames directly to the full HR image without a baseline, relying on the full expressive capacity of the architecture.
+\end{itemize}
+
+A GAN training variant was also implemented for perceptual quality analysis. A scheduled perceptual loss (spectral angle loss weight linearly increasing from 0.005 to 0.05 over 40 warm-up epochs) was incorporated to balance pixel fidelity with spectral consistency. A 5-member heterogeneous ensemble (members differing in initialization seed) was trained to decompose predictive variance into aleatoric and epistemic uncertainty, enabling principled uncertainty propagation in downstream data assimilation (Objective~2).
+
+\subparagraph{Ablation study.}
+A structured ablation quantified the contribution of each key design choice on the held-out test set (Table~\ref{tab:ablation}):
+
+\begin{table}[h!]
+\centering
+\caption{Ablation study on the held-out test set (1,367 sequences). Metrics averaged across 10~m and 20~m band groups. $\uparrow$: higher better; $\downarrow$: lower better.}
+\label{tab:ablation}
+\begin{tabular}{lccc}
+\hline
+\textbf{Configuration} & \textbf{PSNR (dB) $\uparrow$} & \textbf{SSIM $\uparrow$} & \textbf{RMSE $\downarrow$} \\ \hline
+Bilinear baseline & 32.25 & 0.833 & 0.049 \\
+No temporal attention / no fusion (Residual) & 34.72 & 0.873 & 0.030 \\
+No temporal attention / no fusion (Direct) & 35.40 & 0.879 & 0.028 \\
+No adaptive upsampler (Residual) & 35.47 & 0.890 & 0.027 \\
+No adaptive upsampler (Direct) & 35.81 & 0.895 & 0.026 \\
+Full model --- Residual learning & 36.07 & 0.897 & 0.025 \\
+Full model --- Direct learning & 35.92 & 0.896 & 0.026 \\ \hline
+\end{tabular}
+\end{table}
+
+Temporal attention contributes ${\approx}+1.35$~dB PSNR relative to the single-frame variant, confirming that multi-frame context is beneficial at the 3.33$\times$ scale. The adaptive learned upsampler adds ${\approx}+0.60$~dB over fixed-bilinear upsampling. The residual learning formulation outperforms direct learning in most configurations, with the exception of the scheduled-perceptual direct variant, which achieves comparable performance while producing visually sharper outputs.
+
+\subparagraph{SOTA comparison.}
+The proposed model was benchmarked against two satellite-domain SR models evaluated with their original pretrained weights on a subset of the test set: OpenSR-Model \citep{donike2025} and SEN2SR \citep{aybar2025}, following the inter-comparative evaluation protocol of Aybar et~al.\ (2024). Both SOTA models were trained on Sentinel-2 / SPOT or Sentinel-2 / NAIP pairs and perform 4$\times$ upsampling; they were applied here without retraining. Both models scored at or below the bilinear baseline (Table~\ref{tab:sr_results}), reflecting the domain gap between their training data and the STA wetland environment, and demonstrating the necessity of domain-specific training data.
+
+\paragraph{\textbf{Stage 2 — Transfer Learning to Very-High-Resolution Targets (Planned)}}
+
+Stage~1 trained the EMO-TSR model on Sentinel-2 (LR) $\rightarrow$ PlanetScope (HR) pairs, learning to super-resolve 10~m and 20~m inputs to 3~m at a ${\approx}3.33\times$ scale factor. In Stage~2, we plan to leverage transfer learning to extend the model to scarcer very-high-resolution (VHR) targets such as WorldView-2/3 ($\sim$0.3--0.5~m panchromatic, $\sim$1.2--1.8~m multispectral) and ortho-rectified UAV imagery ($\sim$0.05--0.5~m). The key challenge is that VHR acquisitions over the STAs are sparse (typically fewer than 10 cloud-free scenes per year), which makes training a model from scratch infeasible and motivates a fine-tuning strategy.
+
+\subparagraph{Upscaling factor analysis.}
+The required scale factor depends on the LR source used as input during inference (Table~\ref{tab:stage2_scale}).
+
+\begin{table}[h!]
+\centering
+\caption{Scale factors for Stage~2 transfer-learning scenarios. ``WV MS'' refers to WorldView multispectral (1.2~m for WV-2, 1.24~m for WV-3). Stage~1 SR output denotes the super-resolved PlanetScope-equivalent imagery at 3~m generated by the EMO-TSR model.}
+\label{tab:stage2_scale}
+\begin{tabular}{llccc}
+\hline
+\textbf{LR Source} & \textbf{GSD (m)} & \textbf{HR Target} & \textbf{Target GSD (m)} & \textbf{Scale Factor} \\ \hline
+Sentinel-2 (10~m bands) & 10.0  & WV MS & 1.2 & $8.33\times$ \\
+Sentinel-2 (20~m bands) & 20.0  & WV MS & 1.2 & $16.67\times$ \\
+PlanetScope SuperDove   & 3.0   & WV MS & 1.2 & $2.50\times$ \\
+Stage~1 SR output        & 3.0   & WV MS & 1.2 & $2.50\times$ \\
+Sentinel-2 (10~m bands) & 10.0  & UAV   & 0.5 & $20.0\times$  \\
+PlanetScope SuperDove   & 3.0   & UAV   & 0.5 & $6.0\times$  \\
+Stage~1 SR output        & 3.0   & UAV   & 0.5 & $6.0\times$  \\
+\hline
+\end{tabular}
+\end{table}
+
+The EMO-TSR model was trained at ${\approx}3.33\times$; reusing the pretrained encoder and temporal attention weights should be feasible for moderate factor shifts, but factors above ${\approx}6\times$ push beyond the spatial-frequency content learned by the decoder. Therefore, the most practical fine-tuning paths are:
+
+\begin{itemize}
+    \item \textbf{PlanetScope $\rightarrow$ WorldView MS ($2.5\times$)}: The closest to the original $3.33\times$ factor. The progressive upsampler can be reconfigured from $3.33\times$ to $2.5\times$ with minimal change (replacing the adaptive interpolation output target size while retaining the PixelShuffle $\times$2 step). We expect the encoder features to transfer well because the LR input (PlanetScope 3~m) already shares the domain learned in Stage~1.
+    \item \textbf{Stage~1 SR $\rightarrow$ WorldView MS ($2.5\times$)}: The LR input is the Stage~1 super-resolved 3~m image. This creates a cascaded SR configuration: Sentinel-2 $\xrightarrow{3.33\times}$ SR 3~m $\xrightarrow{2.5\times}$ WV 1.2~m. This scenario is useful when no PlanetScope scene is available on a given date, but carries a risk of error accumulation from Stage~1 artifacts.
+    \item \textbf{PlanetScope $\rightarrow$ UAV ($6\times$)}: The largest single-step factor amenable to fine-tuning. The progressive upsampler would require an additional PixelShuffle $\times$2 block (overall $4\times$ learned, plus $1.5\times$ adaptive interpolation), and the encoder would need to handle a substantially different spatial-frequency profile.
+    \item \textbf{Sentinel-2 $\rightarrow$ WorldView ($8.33$--$16.67\times$)}: These factors are too large for single-step SR and would require either a cascaded two-stage approach (Stage~1 followed by Stage~2 fine-tuned model) or a purpose-built architecture with deeper decoder and progressive multi-step upsampling.
+\end{itemize}
+
+\subparagraph{Spectral compatibility.}
+Transfer learning across sensor families requires aligning the spectral response functions (SRFs). Table~\ref{tab:stage2_spectral} compares the bands used in Stage~1 training with those available from WorldView-2/3.
+
+\begin{table}[h!]
+\centering
+\caption{Spectral band correspondence between Sentinel-2, PlanetScope SuperDove, and WorldView-2/3 multispectral bands. Central wavelengths ($\lambda_c$) in nm; bandwidth ($\Delta\lambda$) in nm. Shaded rows indicate bands with no direct counterpart.}
+\label{tab:stage2_spectral}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccc}
+\hline
+\textbf{Band} & \multicolumn{2}{c}{\textbf{Sentinel-2}} & \multicolumn{2}{c}{\textbf{PlanetScope SD}} & \multicolumn{2}{c}{\textbf{WorldView-2/3}} \\
+              & $\lambda_c$ & $\Delta\lambda$ & $\lambda_c$ & $\Delta\lambda$ & $\lambda_c$ & $\Delta\lambda$ \\ \hline
+Coastal Blue  & 443 & 20 & ---   & ---  & 427  & 47  \\
+Blue          & 490 & 65 & 490   & 50   & 478  & 54  \\
+Green         & 560 & 35 & 565   & 36   & 546  & 63  \\
+Yellow        & --- & ---& ---   & ---  & 608  & 37  \\
+Red           & 665 & 30 & 665   & 31   & 659  & 57  \\
+Red Edge      & 705 & 15 & 705   & 15   & 724  & 47  \\
+NIR-1         & 842 & 115& 865   & 40   & 831  & 101 \\
+NIR-2         & --- & ---& ---   & ---  & 908  & 57  \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+Key spectral considerations for transfer learning:
+
+\begin{enumerate}
+    \item \textbf{Common-subset strategy}: Five bands (Blue, Green, Red, Red~Edge, NIR-1) have close spectral counterparts across all three sensors. Fine-tuning using only these bands allows the pretrained encoder, temporal attention, and spectral consistency modules to be reused with minimal retraining; only the first convolutional stem and the output head need channel-count adjustment if the band count or ordering changes.
+    
+    \item \textbf{Unique WorldView bands}: WorldView provides Coastal Blue, Yellow, and NIR-2 bands that have no PlanetScope or Sentinel-2 counterpart in the Stage~1 training set. These bands cannot be generated by the pretrained decoder because it has never seen their spectral distribution. Two strategies are available: (a)~exclude these bands from fine-tuning and produce outputs only for the common-subset bands; (b)~add new output channels to the decoder head, initialize randomly, and train with a larger learning rate on the new channels while applying a lower learning rate to the pretrained backbone (differential learning rates).
+    
+    \item \textbf{Spectral harmonization direction}: In Stage~1, PlanetScope was harmonized \emph{towards} Sentinel-2 via histogram matching. For Stage~2, WorldView reflectances should be harmonized towards the same Sentinel-2 reference distribution used in Stage~1 so that the pretrained features encounter consistent input statistics. This can be achieved by applying the same band-wise CDF-matching procedure from Stage~1, using a Sentinel-2 scene acquired on the same date as the calibration reference. Alternatively, a linear regression model based on pseudo-invariant features (PIFs) can be used as a physics-grounded complementary normalization for the narrower WorldView bands where histogram matching may introduce bias due to the SRF difference.
+    
+    \item \textbf{Radiometric depth mismatch}: PlanetScope SuperDove scenes are delivered as 16-bit unsigned integers scaled to surface reflectance ($\times 10{,}000$); Sentinel-2 L2A uses the same convention. WorldView products, however, may be provided as top-of-atmosphere (TOA) radiance or as ortho-ready products that require an atmospheric correction step (e.g., FLAASH, ATCOR, or sensor-specific calibration coefficients) before they are comparable. All WorldView imagery must be atmospherically corrected to surface reflectance and scaled to the same $[0,1]$ normalized range used in Stage~1 before fine-tuning or inference.
+\end{enumerate}
+
+\subparagraph{Data requirements and fine-tuning strategy.}
+WorldView scenes over the STAs will be limited (typically 5--15 cloud-free multispectral acquisitions over the study period). The critical question is how much VHR data is required for effective transfer.
+
+\begin{enumerate}
+    \item \textbf{Tile yield per scene}: A single WorldView multispectral scene over one STA flow-way at 1.2~m covers ${\approx}3{,}000 \times 3{,}000$ pixels per km$^2$. Tiling at $256 \times 256$ (as in Stage~1) produces ${\approx}140$ non-overlapping tiles per km$^2$. A typical STA flow-way spans 5--20~km$^2$, yielding 700--2,800 tiles per cloud-free scene. With 5--15 usable scenes, the total fine-tuning set would comprise ${\approx}3{,}500$--$42{,}000$ tiles, or ${\approx}1{,}200$--$14{,}000$ temporal triplets (assuming three-frame sequences can be formed from temporally proximate scenes or by mixing with co-temporal Sentinel-2/PlanetScope LR inputs).
+
+    \item \textbf{Minimum sample guidance}: Empirical evidence from satellite SR transfer-learning studies \citep{shermeyer2019} suggests that fine-tuning with as few as 500--1,000 paired tiles can yield $>$80\% of the fully retrained model's performance when the pretrained weights provide a strong prior. In our case, the Stage~1 encoder has already learned spatial features (edges, vegetation texture, water-boundary gradients) from 6,839 sequences covering the same geographic domain, so we expect the domain gap to be primarily spectral and resolution-related rather than content-related. We hypothesize that 3--5 cloud-free WorldView scenes per STA ($\approx$4{,}000--10{,}000 tiles) will be sufficient for effective fine-tuning.
+    
+    \item \textbf{Freezing strategy}: Transfer learning will proceed in two phases: (a)~\textit{head-only tuning} (5--10 epochs): freeze the encoder, temporal attention, and spectral consistency modules; train only the progressive upsampler and output head with the new scale factor and output channels, using a learning rate of $10^{-3}$; (b)~\textit{full fine-tuning} (20--40 epochs): unfreeze all layers and train end-to-end with a reduced learning rate ($10^{-5}$), applying a $10\times$ multiplier on the new/modified layers. Weight decay ($5 \times 10^{-6}$) and the same scheduled spectral angle loss from Stage~1 will be retained.
+    
+    \item \textbf{Temporal input adaptation}: WorldView scenes are not acquired systematically on a 5-day repeat cycle (unlike Sentinel-2). Forming three-frame temporal sequences from WorldView alone may be impossible. Two alternatives will be explored: (a)~\textit{mixed-sensor temporal stacks}: use the co-temporal Sentinel-2 and/or PlanetScope images as the auxiliary temporal frames, with only the center frame replaced by the WorldView-paired LR input—this requires spectral harmonization of all frames to a common reference; (b)~\textit{single-frame mode}: bypass the temporal attention module entirely and fine-tune the spatial encoder and decoder alone, forgoing the multi-temporal benefit.
+    
+    \item \textbf{Validation protocol}: Given the small fine-tuning set, a 5-fold cross-validation strategy (stratified by scene date) will be used instead of a single train/test split. Metrics will be reported as the mean $\pm$ standard deviation across folds. In addition, a ``zero-shot'' evaluation—applying the Stage~1 model to WorldView pairs without any fine-tuning after spectral harmonization only—will establish a lower-bound baseline and quantify how much of the performance gap is closed by fine-tuning.
+\end{enumerate}
+
+\subparagraph{Architectural modifications for Stage~2.}
+The following modifications to the EMO-TSR architecture will be required:
+
+\begin{enumerate}
+    \item \textbf{Input stem}: Replace the first depthwise separable convolution from $C_\text{in}=3$ (Stage~1, 10~m RGB) to $C_\text{in}=N$, where $N$ is the number of spectrally compatible input bands selected for the LR source. If PlanetScope is the LR input, $N=3$ or $5$ (same as Stage~1); if Sentinel-2 is used, $N$ remains 3 for the 10~m branch and 2 for the 20~m branch, and no modification is needed.
+    
+    \item \textbf{Output head}: Replace the final convolutional layer from $C_\text{out}=3$ (10~m) / $C_\text{out}=2$ (20~m) to the number of output bands in the VHR target. For WorldView common-subset fine-tuning, $C_\text{out}=5$ (Blue, Green, Red, Red~Edge, NIR-1). New output channels will be initialized with Kaiming normal weights.
+    
+    \item \textbf{Progressive upsampler}: Adjust the target output spatial dimensions in the adaptive interpolation layer. For a $2.5\times$ factor (PlanetScope $\rightarrow$ WV~MS), the PixelShuffle $\times$2 step produces $154 \times 154$ from $77 \times 77$; the adaptive interpolation then resizes to $192 \times 192$ ($=77 \times 2.5$, rounded). For a $6\times$ factor (PlanetScope $\rightarrow$ UAV), an additional PixelShuffle $\times$2 block is inserted (producing $308 \times 308$), followed by adaptive interpolation to $462 \times 462$ ($=77 \times 6$). The new PixelShuffle block is randomly initialized; the existing block's weights are copied from Stage~1.
+    
+    \item \textbf{Physics-constrained head}: The sigmoid output bounds ($[0,1]$ reflectance range) will be retained for WorldView surface-reflectance products. If UAV data use uncalibrated DN values, the output will be switched to a ReLU activation with dataset-specific min/max normalization.
+\end{enumerate}
+
+\subparagraph{Expected outcomes for Stage~2.}
+This stage will produce: (a)~a fine-tuned EMO-TSR model capable of generating ${\approx}1.2$~m multispectral SR imagery from Sentinel-2 or PlanetScope inputs over the STAs; (b)~an empirical transfer-learning curve quantifying SR performance (PSNR, SSIM, RMSE, ERGAS, SID) as a function of the number of WorldView training scenes; (c)~an analysis of the benefit of spectral harmonization pre-processing and temporal-input mixing for low-data fine-tuning; and (d)~uncertainty estimates from the ensemble for the new SR product.
+
+\subsubsection{Results (Stage 1)}
+
+\begin{table}[h!]
+\centering
+\caption{SR model performance on the held-out test set (1,367 temporal sequences; all five STAs, 2022–2024). Metrics are the unweighted average of 10~m and 20~m band-group results. SOTA models evaluated without retraining on a subset of the test set.}
+\label{tab:sr_results}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Model} & \textbf{Type} & \textbf{PSNR (dB) $\uparrow$} & \textbf{SSIM $\uparrow$} & \textbf{RMSE $\downarrow$} \\ \hline
+Bilinear interpolation          & Baseline         & 32.25 & 0.833 & 0.049 \\
+OpenSR-Model \citep{donike2025} & SOTA (no retrain) & 31.67 & 0.825 & 0.050 \\
+SEN2SR \citep{aybar2025}        & SOTA (no retrain) & 32.20 & 0.832 & 0.050 \\ \hline
+Full model --- Residual         & Proposed (best single) & 36.07 & 0.897 & 0.025 \\
+Full model --- Direct           & Proposed               & 35.92 & 0.896 & 0.026 \\
+\textbf{5-member Ensemble}      & \textbf{Proposed (with uncertainty)} & \textbf{35.95} & \textbf{0.899} & \textbf{0.026} \\ \hline
+\end{tabular}
+\end{table}
+
+The proposed models improve over the bilinear baseline by $+3.8$~dB PSNR and $+6.4$ percentage points in SSIM, with a 49\% reduction in RMSE. Both SOTA satellite SR models, applied without retraining, perform at or below the bilinear baseline on this dataset. This confirms that (i)~domain-specific training is essential for this application; (ii)~multi-temporal input provides meaningful gain over single-frame inference; and (iii)~jointly processing 10~m and 20~m Sentinel-2 bands in a multi-resolution architecture is a practical design choice. The 5-member heterogeneous ensemble additionally provides per-pixel aleatoric and epistemic uncertainty maps ($\sigma^2_\text{alea,10m}\approx 0.0027$; $\sigma^2_\text{epis,10m}\approx 1.9\times10^{-4}$), which will be used as spatially explicit observation-error weights in the data assimilation step of Objective~2.
+
+\subsubsection{Outcomes}
+
+The outcomes of this specific objective include:
+
+\begin{itemize}
+    \item A multi-output temporal SR model trained on 6,839 paired Sentinel-2 / PlanetScope temporal sequences covering all five STAs (2022–2024), super-resolving 10~m and 20~m Sentinel-2 imagery to 3~m resolution ($\approx3.33\times$) with five spectral bands (Blue, Green, Red, NIR, Red~Edge).
+
+    \item A 5-member heterogeneous ensemble providing pixel-level aleatoric and epistemic uncertainty estimates that will be propagated as observation-error variances in the data assimilation stage (Objective~2).
+
+    \item An ablation study documenting the individual contribution of temporal attention ($+1.35$~dB PSNR), adaptive upsampling ($+0.60$~dB), and residual vs.\ direct learning, providing a reproducible design justification.
+
+    \item A benchmark comparison against two state-of-the-art satellite SR models (OpenSR-Model, SEN2SR), demonstrating the advantage of domain-specific training for constructed wetland imagery.
+
+    \item \textit{(Planned — Stage 2)} A transfer-learning framework for fine-tuning the pretrained EMO-TSR model to very-high-resolution targets (WorldView-2/3 at $\sim$1.2~m, UAV at $\sim$0.5~m). This includes spectral compatibility analysis across sensors, optimal scale-factor pathways (PlanetScope $\rightarrow$ WV at $2.5\times$ as the primary scenario), data-efficiency assessment for scarce VHR imagery, and an empirical transfer-learning curve relating fine-tuning sample size to SR performance.
+
+\end{itemize}
+
+\pagebreak
+
+\subsection{Specific Objective 2} 
+
+Define observation models that map RS features to vegetation state variables in the BGC and CASM models. My working hypothesis is that high-resolution, frequent RS data can generate time series that are aggregated to common units and used to nudge vegetation state trajectories in STA models using spatial and temporal observations.
+
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\textwidth]{Obj1b.png}
+    \caption[Methodology] {Chapter 2} 
+    \label{sec:fig:1}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{}
+\label{tab:State Variables}
+\begin{tabular}{ccc}
+\hline
+\textbf{RS product}         & \textbf{Model variable(s) to inform}                            & \textbf{Units} \\ \hline
+\begin{tabular}[c]{@{}c@{}}EAV fractional cover, \\ LAI, biomass\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}EAV producer biomass \\ state by segment.\end{tabular} &
+  g C m⁻² \\
+\begin{tabular}[c]{@{}c@{}}SAV fractional cover\\ LAI\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}SAV producer biomass\\  state by segment\end{tabular} &
+  g C m⁻² \\
+Periphyton proxy            & Periphyton biomass state                                        & g C m⁻²                 \\
+Phytoplankton chlorophyll-a & \begin{tabular}[c]{@{}c@{}}Chl. \\ (segment chl-a)\end{tabular} & µg L⁻¹                  \\
+\begin{tabular}[c]{@{}c@{}}Inundation/water extent \\ (SAR/optical)\end{tabular} &
+  \begin{tabular}[c]{@{}c@{}}Depth and \\ habitat availability for producers\end{tabular} &
+  m, fraction \\ \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Proposed Methodology}
+
+\begin{itemize}
+    \item Identify model variables (BGC and CASM), and their corresponding mathematical formulations, that can be mapped from remote sensing products.
+    \item Identify suitable remote sensing products that have been used to map those state variables (e.g., carbon biomass of emergent vegetation to optical or microwave spectral data).
+    \item Train multi-temporal models to map state variables to remote sensing data using the time series imagery derived from Objective 1. The model will perform probabilistic estimation rather than point estimation. The uncertainty in the model response will be used as the trust in the measurement value in the data assimilation stage.
+    \item Test and select the best performing model.
+    \item Use the best-performing model to produce an estimation of the state variables' values for the area and time of interest.
+    \item Aggregate the observed pixel values into segments. The magnitude of these segments and the aggregation method are still to be defined. These aggregated values will be used as 'observed' values from the state variables and will be used to nudge the model's equations in the data assimilation phase.
+    \item Data assimilation: incorporate the observed state variable values (derived from remote sensing) into the model's equations as nudging terms. This will be done as the difference between the values estimated by the model and the observed value from remote sensing features, multiplied by a trust value. The trust value will be obtained as a combination of the remote sensing model's uncertainty and the quality of the input image data.
+\end{itemize}
+\subsubsection{Outcomes}
+
+The outcomes of this specific objective include:
+
+\begin{itemize}
+    \item A working model to map RS products (using the outcomes from the previous sub-objective) to state model variables. 
+    
+    \item A set of validated and analysis-ready time series data representing the pre-defined state model variables (see Table \ref{tab:State Variables}), along with a routine to aggregate time series data into factors (e.g., $B_tk$ in Figure 3.) that can be incorporated into the existing BGC and CASM models.
+
+    \item An observation-error variance per date/segment and a derived assimilation gain $\gamma$ used in the nudging updates.
+    
+\end{itemize}
+
+\pagebreak
+
+\subsection{Specific Objective 3} 
+
+Identify the direction, strength, and temporal dynamics (lags) of causal connections among hydrologic, water-quality, and aquatic-vegetation features from long-term observational time series. My working hypothesis is that these quantities can guide prior selection and regularization in probabilistic calibration, improving accuracy.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Obj3.png}
+    \caption[Methodology] {Chapter 3} 
+    \label{sec:fig:1}
+\end{figure}
+
+
+\subsubsection{Proposed Methodology}
+
+\begin{itemize}
+    \item Clean and preprocess the data to obtain a common time step and length.
+    \item Implement and test four state-of-the-art causal discovery and inference algorithms on the full set of time series data available.
+    \item Identify the direction, strength, and lags of causal connections among hydrologic, water quality, and aquatic vegetation covariates obtained from observational data.
+    \item Compare these results among causal methods and contrast them against the assumptions made by each of them.
+    \item Analyze the temporal variation of the causal strengths across the entire time series.
+    \item Contrast these results against the expected mechanistic behavior.
+    \item Use the divergence from the expected values as a measure of trust in the observational data when using it in the models.
+\end{itemize}
+
+\subsubsection{Outcomes}
+
+The outcomes of this specific objective include:
+
+\begin{itemize}
+
+    \item The mapping of direction, strength, and lags of causal connections among hydrologic, water quality, and aquatic vegetation covariates obtained from observational data.
+
+    \item A set of interaction plots between each of the covariates and TP, where periods of maximum interaction will be highlighted.
+
+    \item An estimate of how much alignment there is between the observed data and the mechanistic behavior, which can be used as a measurement of trust in the observational data, we can have when incorporating this into the models. 
+    
+\end{itemize}
+
+\pagebreak
+
+\subsection{Specific Objective 4} 
+
+Formulate and evaluate a causally informed, data-driven TP model that incorporates the dynamics of aquatic-vegetation species derived from satellite imagery. My working hypothesis is that combining data-driven machine learning with causal discovery for feature selection can exceed the predictive skill of current decision-support models while maintaining physical interpretability.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Obj4.png}
+    \caption[Methodology] {Chapter 4} 
+    \label{sec:fig:1}
+\end{figure}
+
+\subsubsection{Proposed Methodology}
+
+\begin{itemize}
+    \item Preprocess the time series data to have it formatted as necessary to be used as input data for the data-driven forecasting models.
+    \item Select the models to compare among them, and build their architecture, hyperparameters, optimization metrics, and performance evaluation metrics.
+    \item Train and validate the models.
+    \item Test the models and compare the performance with existing TP models.4
+    \item Compare the model performance of casually informed and non-causally informed models.
+\end{itemize}
+
+\subsubsection{Outcomes}
+
+The outcomes of this specific objective include:
+
+\begin{itemize}
+    
+    \item A machine-learning model to predict TP concentrations at the outlets of the STAs.
+
+    \item A comparison of model performance ($R^2$, NSE) between causally and non-causally informed models.
+
+    \item A comparison in model performance between data-driven and mechanistic models from the SFWMD.
+    
+\end{itemize}
+
+\pagebreak
+
+\subsection{Specific Objective 5} 
+
+Formulate a multi-objective probabilistic calibration routine that jointly fits water-quality and vegetation time series, with documented observation errors, in the BGC and CASM models. My working hypothesis is that probabilistic calibration using water-quality and vegetation features quantifies parameter uncertainty and improves identifiability relative to grid-search baselines.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Obj5.png}
+    \caption[Methodology] {Chapter 5} 
+    \label{sec:fig:1}
+\end{figure}
+
+\subsubsection{Proposed Methodology}
+
+\begin{itemize}
+    \item Define a joint likelihood across multiple targets (e.g., monthly TP, P pools for floc/soil/vegetation).
+    \item Specify priors for parameters.
+    \item Run MCMC (Metropolis–Hastings) to sample the posterior and check convergence.
+    \item Estimate parameters on the calibration period (potentially the same calibration period chosen by the SFWMD: 2005-2012).
+    \item Evaluate performance on the validation period (potentially the same validation period chosen by the SFWMD: 2013-2020).
+    \item Perform global sensitivity analysis to upgrade the one-at-a-time sweeps done in the current version of the model.
+\end{itemize}
+
+\subsubsection{Outcomes}
+
+The outcomes of this specific objective include:
+
+\begin{itemize}
+    
+    \item A multi-objective probabilistic calibration routine for the BGC and CASM models that is intended to reduce reliance on grid-search calibration currently used in these models.
+
+    \item Global sensitivity (e.g., variance-based) and posterior uncertainty analyses, with hold-out validation in time and space.
+
+\end{itemize}
+
+\section{Timeline}
+
+\href{https://uflorida-my.sharepoint.com/:x:/r/personal/sandra_guzmangut_ufl_edu/Documents/Guzman_lab/01_Current%20Personnel/Eduart%20Murcia/PhD/Proposal/Timeline%20PhD100325.xlsx?d=wa0ddc09b6278415984c4b1167d66a9ee&csf=1&web=1&e=KAUOvX}{Follow this link to see the proposed timeline.}
+
+\pagebreak
+
+% \subsection{Timeline}
+
+% % Please add the following required packages to your document preamble:
+% % \usepackage{graphicx}
+% \begin{table}[h]
+% \centering
+% \caption{}
+% \label{tab:my-table}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{ccc}
+% \hline
+% \textbf{Task}                         & \textbf{Start}     & \textbf{End}                          \\ \hline
+% \multicolumn{3}{c}{\textbf{Proposal}}                                                              \\ \hline
+% Final   submission to PI              &                    & April 11th                            \\
+% Review   PI                           & April 11th         & April 21st                            \\
+% Submission   to Committee Members     &                    & April 25th                            \\
+% Proposal   Defense                    &                    & One if these days: May 12 to May   23 \\ \hline
+% \multicolumn{3}{c}{\textbf{Course work}}                                                           \\ \hline
+% Completion   of course work           &                    & End of Fall 2025                      \\
+% Qualyfing   Exams                     &                    & Mar-26                                \\ \hline
+% \multicolumn{3}{c}{\textbf{Dissertation}}                                                          \\ \hline
+% Chapter 1: Super resolution Algorithms Methodology   implementation                                 & March, 2025         & July 1st, 2025        \\
+% Chapter   1:  Manuscript              & July 1st, 2025     & August 15th, 2025                     \\
+% Chapter   1: Internal Submission      &                    & August 15th, 2025                     \\
+% Chapter   1: Journal Submission       &                    & October 15th, 2025                    \\
+% Chapter 2: Change Detection Algorithms Methodology   implementation                                 & July 1st, 2025      & October 1st,   2025   \\
+% Chapter   2:  Manuscript              & October 1st, 2025  & November 1st, 2025                    \\
+% Chapter   2: Internal Submission      &                    & November 1st, 2025                    \\
+% Chapter   2: Journal Submission       &                    & January 15th, 2025                    \\
+% Chapter 3: Estimate Causal Role of Aq Veg Species Methodology   implementation                      & October 1st,   2025 & February 1st,   2026 \\
+% Chapter   3:  Manuscript              & February 1st, 2026 & March 15th, 2026                      \\
+% Chapter   3: Internal Submission      &                    & March 15th, 2026                      \\
+% Chapter   3: Journal Submission       &                    & July 15th, 2026                       \\
+% Chapter 4: Evaluate causally-informed  ML models Methodology implementation                         & March 15th, 2026    & June 15th 2026        \\
+% Chapter   4:  Manuscript              & June 15th 2026     & August 1st, 2026                      \\
+% Chapter   4: Internal Submission      &                    & August 1st, 2026                      \\
+% Chapter   4: Journal Submission       &                    & October 30th                          \\
+% Chapter 5: Refine probabilistic parameterization of mechanistic   models Methodology implementation & June 15th, 2026     & October 1st,   2026   \\
+% Chapter   5:  Manuscript              & October 1st, 2026  & November 31st, 2026                   \\
+% Chapter   5: Internal Submission      &                    & November 31st, 2026                   \\
+% Chapter   5: Journal Submission       &                    & January 31st, 2027                    \\
+% Dissertation submission to committee  &                    & March 1st, 2027                       \\
+% Defense                               &                    & March 15th, 2027                      \\
+% Submission   to department            &                    & April 1st, 2027                       \\ \hline
+% \multicolumn{3}{c}{\textbf{Other publications}}                                                    \\ \hline
+% Paper causal learning MoE: Submission &                    & June 15th 2025                        \\
+% EDIS 1                                &                    & August 1st, 2025                      \\
+% EDIS 2                                &                    & August 1st, 2026                      \\ \hline
+% \end{tabular}%
+% }
+% \end{table}
+% \pagebreak
+% \section{Literature Review - State-of-the-art} \label{sec:Literature_Review_State_of_the_art}
+
+% \subsection{Research Capabilities}
+
+% My previous master's research on soil moisture forecasting provided me with the knowledge and practical skills in ML for time series, space-based causal discovery approaches, and end-to-end project development. In addition, I have previous experience using Geographic Information Systems (GIS) gained during my undergrad program and through courses taken at the University of Florida (UF). For the remaining necessary skills, including remote sensing analysis and the causal learning approach, I have designed a study plan to gain the required knowledge that includes virtual certification programs, classes at UF, and a literature review process. Finally, I have been granted access to the Planet's Education and Research Program, which provides me with up to 5000 square kilometers of PlanetScope or RapidEye high-resolution (daily and 3 to 5 meters) imagery per month for noncommercial research purposes. These data will be instrumental in filling the gap in the need for spatio-temporal data on aquatic vegetation species.
+
+% \subsection{Modeling approaches for P effluent prediction in the STAs}
+
+% STA are driven by hydrological pulses triggered by seasonal rainfall patterns \citep{datadrivenjuston2019}. Previous studies \citep{phosphorusjuston2006,effectszamorano2018} examined the resilience of STAs during periods of high flow and found that the STAs responded well to these events in terms of TP removal. Multiple modeling efforts have been made in the STAs trying to meet the minimum performance criteria commonly adopted in hydrological and ecological modeling that would allow them to capture observed trends and provide reliable estimates for management and decision making (i.e., NSE > 0.5 and $R^2$ > 0.7) \citep{LARIOS2024107131}. However, due to limited data availability and an incomplete understanding of biogeochemical processes in wetlands and water bodies with very low phosphorus concentrations (below 20 µg/L) \citep{datadrivenjuston2019}, models predicting P retention in STAs often fail to meet the criteria. Table \ref{tab:tab2} presents a comprehensive summary of the modeling efforts that have been made until now.
+
+
+% \begin{table}[]
+% \centering
+% \caption{}
+% \label{tab:tab2}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{ccccccc}
+% \hline
+% \textbf{Model name} &
+%   \multicolumn{4}{c}{\textbf{Application}} &
+%   \multicolumn{2}{c}{\textbf{Performance}} \\ \hline
+% \textbf{} &
+%   \textbf{Study site} &
+%   \textbf{Time step} &
+%   \textbf{Data Years} &
+%   \textbf{\begin{tabular}[c]{@{}c@{}}Mean P \\ (\mu g/L)\end{tabular}} &
+%   \textbf{$R^2$} &
+%   \textbf{NSE} \\ \hline
+% ILPM              & Lake Okeechobee    & Year    & 30   & 91            & 0.4  & 0.4   \\
+% MIKE 21           & STA-5 C1           & Week    & 1    & 76            & 0.5  & 0.4   \\
+% RSM-WQ            & STA-1W C4          & Week    & 4    & 18            & 0.00 & -0.2  \\
+% DMSTA             & STA-2 C4           & Month   & 4    & 38            & 0.3  & 0.4   \\
+% DMSTA             & STA-2 C3           & Month   & 2    & 15            & 0.0  & -2.0  \\
+% DMSTA             & STA-2 C3           & Month   & 7    & 17            & 0.0  & -0.4  \\
+% DMSTA             & STA-3/4 C1B        & Month   & 6    & 15            & 0.0  & 0.0   \\
+% DMSTA             & STA3/4 C3A         & Month   & 5    & 14            & 0.0  & 0.0   \\
+% DMSTA             & WCA-1 (Canal SW)   & Month   & 13   & 39            & 0.70 & 0.30  \\
+% DMSTA             & WCA-1 (transition) & Month   &      & 15            & 0.10 & 0.00  \\
+% LOEM-CW           & STA-3/4 C3A        & Week    & 6    & 23            & NA   & -1.10 \\
+% LOEM-CW           & STA-3/4 C3B        & Week    & 6    & 18            & NA   & -0.90 \\
+% Marois and Mitsch & mesocosm           & Bi-week & 0.75 & 18            & 0.00 & -0.20 \\
+% Hu et al.         & STA-1E             & Month   & 14   & 33            & 0.22 &       \\
+% Hu et al.         & STA-1W             & Month   & 14   & 36            & 0.17 &       \\
+% Hu et al.         & STA-2              & Month   & 14   & \textless{}20 & 0.22 &       \\
+% Hu et al.         & STA-3/4            & Month   & 14   & \textless{}20 & 0.24 &       \\
+% WEBS              & STA-2 FW1          & Month   & 16   & 15            & 0.09 &       \\
+% LPWEM             & STA 3/4 C2B        & Day     & 0.5  & 17            & 0.60 & 0.60  \\
+% LPWEM             & STA 3/4 C1B        & Month   & 3    & 17            & 0.40 & 0.39  \\
+% LPWEM             & STA 3/4 C3B        & Week    & 1    & 15            & 0.64 & 0.63  \\ \hline
+% \end{tabular}%
+% }
+% \end{table}
+
+% \citet{mechanisticmin2011} used the MIKE 21 model framework developed by the Danish Hydraulic Institute that incorporates hydrodynamics and advection-dispersion modules for flow and transport, and the ECO Lab module to simulate P dynamics. The model included 11 state variables, and most processes were modeled as first-order kinetics. The authors highlighted the need to further study the role of floc layers and to incorporate data from the macrophyte and periphyton community dynamics. \citet{spatiotemporalpaudel2011} studied six biogeochemical models all of which were coupled with a pre-calibrated hydrodynamic model based on the Regional Simulation Model (RSM) developed by the SFWMD. The models had a hierarchically increasing complexity. The simplest mode considered the net settling of TP as the only undergoing process, while the most complex incorporated soil TP store and release mechanisms, plant uptake/release of P from/to the water column, periphyton P uptake, and macrophyte and periphyton growth.
+
+% Managers at the SWFMD have relied exclusively on the Dynamic Model for STAs (DMSTA) for decision-making. Originally developed and calibrated for the Everglades Protection Project, DMSTA simulates daily water and mass balances using customized morphometry, hydraulics, and phosphorus cycling parameters for individual cells in which the STAs were subdivided \citep{WalkerKadlec}. DMSTA use a tanks-in-series modeling approach for internal flow and dispersion, has two state variables, and uses three core equations that were created in the late 1990s \citep{datadrivenjuston2019}. However, despite being used as the official model for decision support, the model has only been able to provide $R^2$ and $NSE$ of 0.3 and 0.4, respectively, in the best scenario.
+
+% Other models have been developed to address DMSTA's limitations; however, they have not been adopted for decision support. \citet{datadrivenjuston2019} proposed a data-driven algorithm specifically designed for low-p modeling. This approach reported the highest performance to date ($R^2$ = 0.4-0.7). It used input-output biogeochemical data collected by the SFWMD plus longitudinal internal water P data collected from 2003 to 2016 from STAs 2, 3, and 4. However, this mathematical model was developed for very specific conditions and given it has minimal representation of the complex biogeochemical processes driving P movement through the STAs and its relation to the WQBEL \citep{SFWMD2024}, it does not generalize to other conditions. \citet{integratedji2016} adapted the Lake Okeechobee Environment Model (LOEM) to the characteristics of the STAs (LOEM-CW) by including interactions from the Submerged Aquatic Vegetation (SAV) and Emergent Aquatic Vegetation (EAV) communities with P. The LOEM-CW model incorporates EAV and SAV through simulated interactions with P and other biogeochemical and hydrological factors using the Chesapeake Bay model as reference. Currently, no model has incorporated SAV and EAV information through direct measurements due to the lack of a feasible monitoring framework. \citet{LARIOS2024107131} proposed a compartmentalized model that follows the spiraling theory emphasizing the dynamic nature of nutrient cycling through multiple compartments along the STAs. The model creates individual compartments for macrophytes, periphyton, litter, floc, recently accreted soils, sediment pores, and the water column. Despite being one of the most comprehensive models proposed to date, it only achieved $R^2$ of around 0.10.
+
+% Apart from the mechanistic modeling efforts, there have been some data-driven approaches that have been implemented. \citet{HU2024107130} used structural equation modeling to analyze the long-term performance of TP in the STAs. The authors of this study used a statistical approach to simulate outflowing TP as a function of inflow TP and N, hydraulic loading rate, STA age, calcium, pH, and water temperature. The proposed model yielded $R^2$ of around 0.24.
+
+% \subsection{Causal Learning} 
+
+% Causal learning algorithms for time series can help clarify the partially resolved question of which key drivers shape P dynamics in the STAs by disentangling causality from correlation. However, caution is necessary because the validity of these algorithms depends on specifying a set of assumptions about both the data and the system \citep{causalrunge2018}. To expand their domain of applicability, numerous causal learning methods have been developed, yet ensuring reliable outcomes in natural systems such as the STAs remains difficult due to limited ground truth data and the sensitivity of these methods to assumption validity. Practical constraints further complicate validating assumptions such as the presence of dynamical noise, hidden confounders, and sufficient sampling rates. For instance, convergent cross mapping (CCM) performs best (i.e., maximizes true positives and minimizes false positives) when around 20\% of the time series variance arises from dynamical noise; any deviation from this can substantially increase false positive or decrease true positive rates \citep{causalrunge2018}. Consequently, exploring multiple algorithms with different assumptions and comparing their outputs against domain knowledge is essential for achieving robust inferences in the STAs context.
+
+% Up to now only a few studies have applied advanced modeling techniques to explore the causal relationships between biogeochemical factors and TP concentrations in the STAs. \citet{HU2024107130} employed structural equation modeling (SEM) to examine relationships among covariates and test hypotheses about phosphorus removal in the STAs. Rather than using SEM as a causal-discovery approach, the authors relied entirely on domain knowledge to define the causal structure, instead of inferring it from the data. Similarly, \citet{nonlinearmedina2019} employed state-space modeling to map causal interactions among the deterministic component of 19 covariates and TP and then developed data-driven models using these outcomes. The outcomes of these studies offer valuable, but distinct, benefits for understanding the complex dynamics of STAs.
+
+% In other fields, including climate modeling, causal learning has proved to be useful in determining the causal impact of Arctic variables on winter circulation \citep{causalkretschmer2016} and identifying precursors of the stratospheric polar vortex \citep{earlykretschmer2017}. \citet{causalnowack2020} also applied causal learning algorithms to investigate sea level pressure in a large set of climate model simulations.There is a significant potential of causal learning to deepen our understanding of complex systems. However, its application to wetland research still needs to be fully explored. 
+
+% Causal discovery approaches can provide novel insights into the dynamics of STAs. Below is an overview of the rationale behind four main categories of causal discovery methods, along with their most relevant algorithms.
+
+% \subsubsection{Granger Causality and Conditional Independence-based Algorithms}
+
+% The first framework to appear in causal discovery for time series analysis was Granger causality (GC) \citep{GrangerCausality}. To report causality, GC methods test whether adding past values from an external vector Y improves the prediction of current values of X \citep{causalmoraffah2021}. GC methods have been applied in various fields, including earth science studies \citep{grangertriacca2005,memorymcgraw2018}; however, many GC methods have been proven to have multiple limitations with sub-sampled time series, high dimensionality, stochasticity, dynamic lags, instantaneous effects, latent confounders \citep{inferringrunge2019,discoveringvarambally2023}. Numerous modifications of the original GC-based models have been proposed over the years to address these limitations. \citet{causalmoraffah2021} presents a comprehensive review of these methods, the Variable-lag GC by \citet{variablelagamornbunchornvej2019} the most recent of them. This method uses dynamic time wrapping (DTW) to capture dynamic time-delayed effects.  
+
+% An alternative approach to GC is conditional independence-based algorithms. These methods are based on the time order assumption and the Causal Markov, Faithfulness, and Sufficiency assumption \citep{causalmoraffah2021}. Transfer entropy is a conditional independence-based algorithm that uses an information theoretic approach. Modern versions of this method have been designed to improve the capacity of this algorithm to handle high-dimensionality and to recognize other than just pairwise causal direction. For instance, \citet{causalityzhou2022} presents a matrix-based transfer entropy algorithm that can detect direct and indirect causation in high-dimensional datasets. Another approach that uses conditional independence is the PC algorithm and its many modifications. These methods are widely used because of their flexibility in terms of data distributions and causal relationships. One of the most recent and relevant modifications was proposed by \citet{detectingrunge2017}. The Momentary Conditional Independence PC algorithm (PCMCI) is a two-step algorithm specially designed for time-series analysis that avoids detecting spurious links that come from the violation of the independently and identically distributed assumption. This algorithm has been successfully implemented in various environmental and climate applications \citep{detectingrunge2019, discoveringrunge2020}. The authors of this algorithm claimed that it could handle high-dimensional, linear, and nonlinear data sets with state-of-the-art detection power. This algorithm is best suited for stochastic systems.
+
+% \subsubsection{Space State-based Algorithms} 
+
+% Another method of causal learning that has become popular over the years is convergent cross-mapping (CCM). It is a nonlinear state-space-based method founded on Taken's theorem that reconstructs deterministic nonlinear attractors from the observational data \citep{inferringrunge2019}. Its main characteristic lies in its ability to reconstruct attractors for a specific variable from another variable that belongs to the same dynamical system and from lagged vectors of itself. 
+
+% \citet{nonlinearmedina2019} performed a causal analysis in the STAs applying a nonlinear time series (NLTS) framework to test and identify low-dimensional deterministic dynamics. This framework used CCM to map causal relationships between the covariates. With this, they were able to map existing deterministic relationships between a set of biogeochemical variables and the effluent concentration of TP in two STA. This study proved the existence of deterministic behavior in the STAs and pointed out the necessity of further studying causal interactions in the STAs to help guide decision-making toward the most effective interventions. 
+
+% Despite the multiple advantages of CCM and its increasing popularity, it has been shown to have various weaknesses. CCM assumes the existence of a low-dimensional attractor and that its reconstruction would entirely capture the characteristics of the state space, including how the observed and unobserved confounders affect the system. This only occurs when the presence of noise in the system is not significant, as when it occurs, the CCM tends to be over-optimistic and incapable of distinguishing between confounding and causation \citep{causalrunge2018}. Finally, CCM could be better suited for stochastic systems.
+
+% Multiple modifications of the original CCM formulation have been developed over the years to overcome its various limitations. \citet{causalizedsun2024} developed a causalized version of this algorithm (cCCM) that does not allow future values from one process to affect the past of the other. This modification corrected some of the over-optimistic results of CCM and partially proved to work under stochastic conditions. Further study would be required to prove its suitability for different scientific domains, including environmental sciences and system conditions.
+
+% \subsubsection{Structural Equation-based Algorithms}
+
+% Structural Equation Modeling (SEM) in the causal inference domain relies on qualitative causal assumptions, observational data, and specific queries to produce causal claims. The validity of these claims is limited to the domain defined by the causal assumptions derived from domain knowledge \citep{causalpearl2012}. SEM approaches are considered powerful methods that can identify causal interactions even when two variables are contemporary, and that can handle latent confounders \citep{inferringrunge2019,discoveringvarambally2023}. The Linear Non-Gaussian Acyclic Model (LiNGAM) \citep{linearshimizu2006} and its adaptation to handle autoregressive data,\citep{estimationhyvrinen2010}, high dimensionality \citep{multidimensionalschaechtle2013} are among the most widely used SEM approaches to estimate causal structures; however, these methods are not well suited to handle history-dependent noise issues (i.e., the change of noise distribution due to past actions) \citep{discoveringvarambally2023}. One of the latest developments in SEM methods is the Mixed Causal Discovery (MCD) approach developed by \citet{discoveringvarambally2023}. MCD assumes that the data are not generated by only one but for multiple processes. It uses a mixture of causal models to represent each of these processes and then combines them into one to provide the causal structure of the covariates under study. This method can be set to handle linear and nonlinear processes and history-dependent noise issues. Few applications of SEM methods have been made in earth and environmental sciences. \citet{HU2024107130} used SEM to study the covariates that influenced P retention and flow in the STAs in Florida. \citet{causalperezsuay2020} explored a structural causal modeling approach for non-deterministic systems in geosciences. \citet{causalityotgonbaatar2022} used SEM to study the causal relationship between multiple satellite imagery.
+
+% \subsubsection{Machine Learning and Deep Learning-based Algorithms}
+
+% In the context of causal inference and causal discovery, Machine Learning (ML) and Deep Learning (DL) algorithms are often combined to address challenges such as nonlinearity, scalability in handling multiple time series, and the unknown distribution of data, among other issues \citep{scalablexu2019}. The popularity of these approaches has re markedly increased  over the last decade for hydrological applications, highlighting the potential and relevance in the prediction of STA water quality dynamics. For example, \citet{exploringhuang2020} assessed the causal relationships between multiple hydrological and environmental covariates and water level using a causal generative neural network approach. Through this approach, the author were able to estimate the causal impact of the dam operation on the vegetation communities downstream.
+
+% \citet{neuraltank2018} proposed a nonlinear method that extracts GC structures using multilayer perceptrons (MLP) or recurrent neural networks (RNN) combined with regularization strategies. The key advantage of this method is its ability to handle nonlinearity, unlike traditional GC algorithms, which are limited to linear structures. Additionally, \citet{seq2graphdang2018} introduced a DL-based algorithm that leverages Gated Recurrent Units (GRU) to uncover temporal lagged and interconnected multivariate causal relationships.
+% Another example is the work by \citet{scalablexu2019}, who developed a DL-based method for causal discovery that does not rely on predefined kernels or data distributions. Their method employs low-rank approximation to manage inter-level causal relationships across large numbers of time series while also reducing sensitivity to data noise. \citet{estimatingmeng2019} proposed a DL-based method that solves the fundamental problem of unobserved confounders of nonlinear GC methods. It solves the issue by using generative models with latent variables to recover the information hidden by the unobserved confounders. The latent variables' posterior distribution represents the distribution from the unobserved confounders, and variational autoencoders are used to estimate it. \citet{rhinogong2022} proposed a method that uses DL together with variational inference and vector auto-regression to create a causal discovery framework that can model nonlinear time series with instantaneous effects and adjust the noise distribution using historical observations.
+
+% \citet{exploringhuang2020} developed a nonlinear GC discovery framework using Causal Generative Neural Networks (CGNN) to causally link time series data derived from satellite imagery with various hydrological factors, such as precipitation and temperature. This framework enabled the authors to identify the causal impact of water level dynamics on the growth of surrounding vegetation, discerning between the effect of the dam's management operation and the climate covariates. \citet{largescalebi2023} used a causality-gated time series Transformer (CGTST) to make predictions over a target variable and assess the contribution of each covariate using the causality gate structure. Such contribution was considered a measure of a causal connection between the covariates and the target variable. A posterior permutation feature importance method was then used to filter spurious causal relationships.
+
+% \begin{comment}
+
+% \subsubsection{Causal Model Evaluation}
+
+% Among the multiple uses and implementations of causal learning, multiple causal algorithms have been used for physical model evaluation via comparison observational data-derived and modeled-derived DAGs \citep{discoveringcampsvalls2023}. \citet{causalnowack2020} applied the PCMCI causal algorithm on sea level pressure simulated data and compared the resulting DAG with the one obtained from proxy observational data as a way to perform process-oriented model evaluation. Similar implementations of causal learning algorithms have been done in remote sensing data \citep{causalperezsuay2020}, and climate models \citep{takingeyring2019}.
+
+    
+% \end{comment}
+
+
+% \subsection{Using Multispectral High Resolution Satellite Imagery to Map Aquatic Vegetation Species} 
+
+% A preliminary literature review shows that monitoring dynamics of the aquatic vegetation in zones of the STAs with high variability of species is possible through the use of hyper-spectral imagery; however, acquiring hyper-spectral data is too expensive and cannot be done frequently \cite {combiningzhang2014}. Multi-spectral satellite imagery has been successfully used to map aquatic vegetation in the STAs but only in areas of low species variability due to the relatively low resolution of this imagery \citep{frameworkzhang2016,applyingzhang2017}. Currently, the SFWMD performs monthly vegetation surveys made by an helicopter overflight and complemented ground observations from personnel. This intensive monitoring plan is required to detect and address rapid changes in vegetation dynamics—such as the sudden spread of undesired species— and to make long-term management plans (SFWMD, 2024).
+
+% Studies on wetlands mapping outside the STAs have been performed. \citet{integratingsahour2021} integrated Sentinel-1C-band synthetic aperture radar with 10-m Sentinel 2 bands to map emergent vegetation in the Prairie Pothole Region of North America using the Google Earth Engine tool. However, this study did not differentiate between multiple EAV species and did not perform an object change analysis on the species. \citet{vegetationallami2021} used Landsat 8 OLI multispectral imagery and a set of indices to map the spatial distribution of the invasive water hyacinth in a river system. This study provided an assessment of the effectiveness of multiple indices in mapping hyacinth; however, the resolution of the images limited the ability of the framework to perform well in zones of high variability. \citet{mappingchen2018} proposed a framework to map SAV species using 16-m resolution satellite imagery. This framework was limited to accurately mapping only in regions with high SAV coverage (greater than 40\%). \citet{geographictompoulidou2024} developed a hierarchical object-based image classification model with 10-m Sentinel-2 multiseasonal imagery to map EAV, SAV, and FAV in a deep oligotrophic/mesotrophic Mediterranean lake. Despite the proven usefulness of 10-m Sentinel satellite images to map EAV and FAV, this study pointed out the need for novel approaches to map SAV with higher precision.
+
+% In addition to open-source satellite imagery providers such as Landsat and Sentinel, commercial providers offer imagery with higher spatial, temporal, and spectral resolution, which could serve as an alternative for precise and consistent monitoring of aquatic vegetation species. Planet (Planet Labs, Inc., San Francisco, CA, USA) provides daily 4-band (red, green, blue, and near-infrared) or 8-band images (coastal blue, blue, green I, green, yellow, red, red edge, NIR) with 3.7 meter resolution, available globally from 2014 and 2018, respectively, to present. Numerous studies have demonstrated the utility of this imagery in monitoring climate and social phenomena. For instance, \citet{superpixelha2023} integrated high-resolution PlanetScope imagery with advanced ML algorithms to perform superpixel-based classification of seagrass in Tauranga Harbor. Similarly, \citet{planetscopehaq2022} used Planet imagery combined with ML classification algorithms to monitor agricultural development in the Al-Qassim region. Additionally, \citet{planetscopegabr2020} utilized PlanetScope imagery for bathymetry mapping along the northern coast of Egypt.
+
+% \subsubsection{Unsupervised change detection algorithms}
+
+% Unsupervised change detection has emerged as a practical solution for scenarios where collecting ground truth data is economically or operationally unfeasible. Large-scale wetland projects, such as the STAs in South Florida, showcase this challenge due to the high diversity of aquatic vegetation species and the inherently dynamic distributions of those species. STAs and other constructed wetlands rely on these vegetation communities to remove and store nutrients that would otherwise contaminate downstream protected areas. However, rapid events—such as the spread of invasive species, vegetation die-offs, or floating tussocks—can significantly affect nutrient uptake and storage. As a result, establishing a monitoring framework that does not depend on labeled data and facilitates continuous, cost-effective tracking is crucial for guiding timely management interventions and refining existing modeling approaches.
+
+% \section{Proposed Methodology} \label{sec:Proposed_Methodology}
+
+
+% \subsection{Chapter 1: Mapping Causal Connections between Total Phosphorous, Hydrological, and Biogeochemical Covariates} \label{sec:Chapter1}
+
+% This study evaluates and contrasts four causal discovery methods on observational time series data from the SFWMD. The primary goal is to address various methodological limitations by using multiple causal algorithms, leading to a more accurate mapping of causal relationships between hydrological, biogeochemical, and external covariates (drivers) and TP. This improved understanding aims to clarify the mechanisms of P retention and flow under low P conditions, potentially guiding the refinement of existing mechanistic models.
+
+% \begin{table}[]
+% \centering
+% \caption{List of biogeochemical and hydrological variables monitored by the South Florida Water Management District (SFWMD) without significant  missing values.}
+% \label{tab:tab2}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{ccc}
+% \hline
+% \textbf{Covariate}           & \textbf{Source} & \textbf{Collection Point} \\ \hline
+% PHOSPHATE, DISSOLVED AS P &
+%   \multirow{20}{*}{DBHYDRO} &
+%   \multirow{20}{*}{Inlet/Outlet STAs} \\
+% PHOSPHATE, ORTHO AS P        &                 &                           \\
+% PHOSPHATE, TOTAL AS P        &                 &                           \\
+% SOLUBLE REACTIVE PHOSPHOROUS &                 &                           \\
+% SP CONDUCTIVITY, FIELD       &                 &                           \\
+% PH, FIELD                    &                 &                           \\
+% DISSOLVED OXYGEN             &                 &                           \\
+% WATER TEMPERATURE            &                 &                           \\
+% NITRATE+NITRITE-N            &                 &                           \\
+% SULFATE                      &                 &                           \\
+% ALKALINITY, TOT, CACO3       &                 &                           \\
+% MAGNESIUM                    &                 &                           \\
+% HARDNESS AS CACO3            &                 &                           \\
+% POTASSIUM                    &                 &                           \\
+% CALCIUM                      &                 &                           \\
+% SODIUM                       &                 &                           \\
+% TOTAL SUSPENDED SOLIDS       &                 &                           \\
+% CHLORIDE                     &                 &                           \\
+% AMMONIA-N                    &                 &                           \\
+% TOTAL KJELDHAL NITROGEN      &                 &                           \\ \hline
+% P Species &
+%   \multirow{15}{*}{\begin{tabular}[c]{@{}c@{}}The following documents\\ and the corresponding\\ data files \\ will be requested to \\ the SFWMD:\\ \\ DBE 2023b,\\ DBE 2023c,\\ University of Florida 2023a\end{tabular}} &
+%   \multirow{15}{*}{\begin{tabular}[c]{@{}c@{}}Transects STAs: \\ 5/6 FW1,\\ 3/4 CFW,\\ STA2 FW3,\\ STA2 FW4\end{tabular}} \\
+% N Species                    &                 &                           \\
+% Ions                         &                 &                           \\
+% DOC                          &                 &                           \\
+% Fe                           &                 &                           \\
+% Al                           &                 &                           \\
+% Sulfate                      &                 &                           \\
+% Alkalinity                   &                 &                           \\
+% TSS                          &                 &                           \\
+% Hardness                     &                 &                           \\
+% Chlorophyll                   &                 &                           \\
+% pH                           &                 &                           \\
+% Temperature                  &                 &                           \\
+% DO                           &                 &                           \\ \hline
+% \end{tabular}%
+% }
+% \end{table}
+
+% \subsubsection{Domain Knowledge Acquisition}
+
+% A crucial part of this research involves gathering domain knowledge to guide both the selection of causal discovery algorithms and the interpretation of their outputs. This will be conducted in two main stages: a literature review process and an engagement with domain experts. For this, I developed a structured questionnaire for researchers who have extensive experience in STA management, wetland biogeochemistry, or related fields.
+
+% \begin{itemize}
+%     \item \textbf{Causal Sufficiency:} Are there any critical drivers of both TP inflow and outflow (e.g., vegetation type, sediment interactions, pH, certain management actions) that are not regularly monitored in STAs? (See Table \ref{tab:tab2}).
+%     \item \textbf{Faithfulness:} Could seasonal or operational practices in STAs cause inflow and outflow TP concentrations to appear uncorrelated, even when I suspect a real causal link?
+%     \item \textbf{Markov Condition:} How quickly do changes in TP inflow translate into observable effects in the outflow?
+%     \item \textbf{Absence of Hidden Confounders:} Do you suspect any interventions that might affect both inflow and outflow but are not currently captured in the data being collected?
+%     \item \textbf{Stationarity:} What changes in vegetation cover, management, or hydrological patterns have shifted in the past TP inflow–outflow relationships in STAs?
+%     \item \textbf{Linearity:} Are there known specific conditions where the STAs' response deviates from a simple linear relationship?
+%     \item \textbf{Contemporaneous Relationships:} Are there events altering TP outflow before the next sampling occurs hiding short-term cause–effect relationships?
+%     \item What specific site conditions or management strategies in STA-2 could have weakened the inflow–outflow relationship, compared to STA-3/4 where inflow is more directly causally connected to outflow TP?
+    
+% \end{itemize}
+
+
+% \begin{figure}[h!]
+%     \centering
+%     \includegraphics[width=1\textwidth]{QAD.png}
+%     \caption[QAD] {Structure of the Proposed Causal Analysis} 
+%     \label{fig:Figure 2}
+% \end{figure}
+
+
+% \subsubsection{Inputs: Questions, Variables of Interest, Assumptions, and Data}
+
+% I will start by defining the research question—in this case, what causal structure underlies P-dynamics in the STAs?—and then identifying and constructing the relevant variables (nodes of the graph), based on available data, their dimensions, and time resolution. As illustrated in Figure \ref{fig:Figure 2}, I will then refine the specific causal question (e.g., whether to reconstruct a full causal graph or focus on pairwise causation with one target variable) and align it with domain knowledge to determine which assumptions need to be addressed (e.g., stationarity, hidden confounders, linearity). Next, I will also consider potential preprocessing steps—such as de-trending, masking for seasonal effects, transforming data to match statistical assumptions, de-noising, or using sliding windows to handle slowly varying confounders.
+
+% I will then implement four causal discovery algorithms, each characterized by specific assumptions regarding stationarity, linearity, hidden confounders, and other factors. By systematically applying these algorithms to the same dataset, I can assess how their different methodological approaches may yield distinct causal structures. Following this, I will integrate the results from all four methods by identifying common causal relationships across the algorithms, while considering the assumptions made and consulting domain knowledge to interpret any discrepancies. This multi-algorithm strategy not only helps mitigate biases inherent in individual methods but also strengthens confidence in the final causal inferences by converging on robust, mutually supported findings.
+
+% Finally, by verifying these results and comparing them against expert insights, I can integrate all findings into a more robust interpretation of the causal structure driving P-dynamics in the STAs.
+
+% \subsubsection{Inference Engine}
+
+% In the proposed study, I will implement and test four state-of-the-art causal discovery and inference algorithms, derived from the four causal discovery and inference groups described in Section 5, namely GC and Conditional Independence-based algorithms, state-space-based algorithms, structural equation-based algorithms, and ML/DL-based algorithms (See Figure \ref{fig:Figure 2}). Each selected algorithm will be linked to a particular set of assumptions that will determine the physical domain in which it can be interpreted.  
+
+% The selection process will follow this logic. GC-based algorithms will be implemented first and used for baseline results. From here, I will select one classical implementation of GC, which is simpler to interpret but limited to linear relationships, stochastic, confounder-free, and low-dimensional datasets, and then a modified version of GC to overcome some of these limitations. 
+
+% Next, I will incorporate more advanced methods from the conditional independence-based pool of algorithms, which are non-parametric methods that can handle nonlinearity and have more flexible assumptions. From here, I will first select one baseline algorithm, such as the PC algorithm or its extension, the Fast Causal Inference (FCI) algorithm, which can handle latent variables and selection bias. Then, I will select a more advanced algorithm, such as the PCMCI, which could handle high dimensionality and avoid spurious links.
+
+% Next, algorithms that could work with deterministic datasets will be included. For this, I will choose one of the state-space-based algorithms, such as CCM, which has been previously implemented in the STA. In addition, I can implement an algorithm such as the cCCM, whose authors claimed it is well suited to handle nonlinear deterministic (and some stochastic) datasets and to avoid spurious connections or over-optimistic results.
+
+% Next, I will select two algorithms from the pool of algorithms based on structural equations. From here, I will choose one baseline algorithm, such as the LiNGAM algorithm, and one more advanced algorithm, such as the MCD, whose authors have claimed to be well-suited to handle nonlinearity, high-dimensionality, and history-dependent noise issues. Finally, I will select two algorithms from the pool of ML/DL-based algorithms.
+
+% \begin{comment}
+% \begin{figure}[h!]
+%     \centering
+%     \includegraphics[width=0.7\textwidth]{Causal Discovery Analysis.png}
+%     \caption[Causal] {Causal Analysis} 
+%     \label{fig:Figure 3}
+% \end{figure}
+% \end{comment}
+
+% \subsubsection{Outputs}
+
+% The outcome of the proposed methodology will include the development of the QAD framework, along with a set of Directed Acyclic Graphs (DAGs) for each implemented method, which depict the causal connections between covariates. Additionally, a table will be provided showcasing the coefficients that represent the strength of these causal connections. By implementing and contrasting four state-of-the-art causal algorithms, my working hypothesis aims to address a larger number of methodological limitations, thereby obtaining a more accurate mapping of the causal connections between the hydrological, biogeochemical, and external covariates (drivers) and the concentrations of TP (target). This comprehensive approach will facilitate a deeper understanding of P retention-flow mechanisms under low P conditions and can be utilized to inform the parameterization or re-formulation of existing mechanistic models. The findings will be interpreted by contrasting the results against each other and against the domain knowledge and known physical processes within the STAs compiled during the literature review process.
+
+% \subsection{Chapter 2: Object Track Detection of Aquatic Vegetation Species in the STA.} \label{sec:Chapter_2}
+
+
+% In this study, I propose to develop and evaluate a monitoring framework to track temporal and spatial changes in the distribution of aquatic vegetation species by combining PlanetScope satellite imagery with drone-derived data and super resolution algorithms to increase the effective spatial resolution. Specifically, I will use the drone imagery as a high-resolution reference dataset for training super resolution models—such as convolutional neural networks (CNNs) or generative adversarial networks (GANs)—so that PlanetScope data can be up-scaled with finer detail. My working hypothesis is that this enhanced resolution, together with the daily coverage from PlanetScope and novel machine learning–based classification and change detection algorithms, will enable the identification of individual aquatic vegetation species at finer scales (e.g., at the level of individual species). Additionally, the framework will be capable of detecting species changes with a temporal resolution of at least 15 days, achieving an accuracy of at least 95\% and a Kappa value of 0.93. This approach aims to address the current lack of observational time series data on aquatic vegetation species and facilitate mapping of distribution changes to the individual species scale.
+
+% \subsubsection{Data Acquisition}
+
+% Access to PlanetScope satellite imagery has been granted through the Planet's Education and Research Program, which provides me with up to 5000 square kilometers of PlanetScope or RapidEye high-resolution (daily and 3 to 5 meters) imagery per month for noncommercial research purposes. PlanetScope offers three type of imagery products due to technological enhancements of the satellites over time. The PS2 and PS2.SD—older products— data products are made up of 4 individual bands, namely, blue, green, red, and NIR. On the other hand, the PSB.SD data products offer 4 additional bands, namely, coastal blue, green I, yellow, and red edge.
+
+% The monthly quota is being retrieved via the PlanetScope API and delivered to Google Earth Engine (GEE) \citep{gorelick2017google} platform for further processing and scientific analysis. Next, 80\% cloud free tiles— bounded by physical limits of each STA— are manually selected from the Planet explorer web product. From here, one image per month per STA has been selected, except when there were zero images at least 80\% cloud free for a month, in that case I selected multiple tiles with the lowest percentage of cloud that were available and used them to create a composite image with less cloud presence.
+
+% %%%To discriminate between x species 
+% \subsubsection{Data Preprocessing}
+
+% PlanetScope offers two geometry types—basic and ortho. The Basic Scene product requires to be corrected for terrain distortions. On the other side, the Ortho Scenes are offered as ortho rectified products. In addition, these product are offered as Surface Reflectance products (SR), meaning that the atmospheric effect has been accounted for, or scaled Top of Atmosphere Radiance (TOAR) which includes the influence of atmosphere, clouds, and aerosols.Thus, whenever possible, I will select ortho rectified SR products. In those cases when this data is not available, I will acquired the unprocessed data and used a generic atmospheric correction algorithm (i.e., ACOLITE \citep{acolitevanhellemont2016}) to perform atmospheric, and geometric correction.
+
+% In addition, I will use image normalization and segmentation on the corrected imagery to reduce brightness variation and increase pixel homogeneity. For this, algorithms such as multiresolution segmentation or simple linear iterative clustering (SLIC) algorithms could be used \citep{comparisontuzcu2019,superpixelha2023}.
+
+% \begin{figure}[h!]
+%     \centering
+%     \includegraphics[width=0.7\textwidth]{Change Detection.png}
+%     \caption[Change Detection] {Change Detection of Aquatic Vegetation Species in the STA.} 
+%     \label{fig:Figure 3}
+% \end{figure}
+
+% \subsubsection{Methodology: Object-Based Change Detection of Aquatic Vegetation Species}
+
+% In this study, I compare the performance of both supervised and unsupervised bi-temporal change detection algorithms to track seasonal changes in the distribution of the most abundant aquatic vegetation species in two STAs (STAs 1W and 2). I will use medium-resolution bi-temporal images (10 m) and high-resolution bi-temporal images (3 m), independently, to assess how spatial resolution influences change detection accuracy. All imagery will be ortho-rectified and corrected for atmospheric, geometric, and radiometric distortions to ensure reliable comparisons.
+
+% \paragraph{Supervised Approach}
+
+% Because ground-truth imagery is only available from 2003, I will adopt the binary change detection method described by \citet{applyingzhang2017}. This method relies on image algebra and remote sensing indices to derive classification labels from a detailed 2003 vegetation map.  By applying these indices and referencing the 2003 map, I can create labeled datasets that reflect changes across multiple time periods, even in the absence of continuous ground-truth data. I will then train and validate three ML/DL classification algorithms (selected based on a literature review of state-of-the-art methods for aquatic vegetation mapping). Each algorithm’s performance will be evaluated using accuracy, precision, recall (sensitivity), F1-score, and Cohen’s kappa. In addition, I will implement a cross-validation strategy to ensure robustness in model performance estimates.
+
+% After selecting the best-performing classifier, I will generate a temporal series of classification maps for each STA. These maps will be object-based, meaning individual patches of vegetation are treated as coherent units rather than raw pixels. By comparing these patches at different time steps, I will calculate the percentage of change in coverage for each species, highlighting events such as the rapid spread of invasive species or sudden die-offs.
+
+% \paragraph{Unsupervised Approach}
+
+% In parallel, I propose evaluating an unsupervised bi-temporal change detection algorithm (e.g., cluster-based or anomaly detection methods). This approach is particularly useful when ground-truth data are limited or must be extrapolated over large temporal gaps. I will apply a clustering or partitioning method on images from two points in time (e.g., start vs. end of a season) to identify significant spectral or textural changes in vegetation.
+
+% Following these two parallel analyses, I will compare the supervised and unsupervised change detection results to gain a comprehensive understanding of vegetation dynamics. I will quantify how using 10 m vs. 3 m imagery impacts detection accuracy and species delineation, potentially revealing the spatial scales most relevant for vegetation management in STAs. The outputs will inform managers about which areas are experiencing the most rapid changes in coverage, enabling earlier interventions (e.g., removing invasive species, adjusting water levels) to maintain nutrient uptake and storage efficiency.
+
+
+% \subsubsection{Outputs}
+
+% The outputs of this research are three-fold. 
+
+% \begin{enumerate}
+%     \item The proposed approach could serve as an alternative monitoring framework to gather historic and future observational data from the aquatic vegetation species.
+%     \item I will provide a set of time series covariates derived from satellite imagery that will provide information about the spatiotemporal dynamics of the most relevant aquatic vegetation species, and their interaction with other environmental factors. Examples of such indices include percentage of coverage of individual species, rate of growth between seasons, ratios of coverage between competing species, customized vegetation indices obtained from satellite imagery per specie that could be informative of different undergoing phenomena.
+%     \item A set of maps that will allow the visualization of the most relevant changes in aquatic vegetation species.
+% \end{enumerate}
+ 
+
+% \subsection{Chapter 3: Mapping Causal Connections between Total Phosphorous, Hydrological, and Biogeochemical Covariates, and Aquatic Vegetation Indices Derived from Satellite Imagery.} \label{sec:Chapter_3}
+
+% \subsubsection{Domain Knowledge Acquisition}
+
+% In this section of the study, I will integrate relevant information about aquatic vegetation species, their dynamics, and the interactions between environmental variables (i.e., precipitation, temperature, water temperature, and evapotranspiration), TP, and aquatic vegetation dynamics.
+
+% \subsubsection{Inputs}
+% Similar to Section 6.1.2, I will use the domain knowledge acquisition stage outputs to develop the QAD framework. 
+
+% \subsubsection{Inference Engine}
+% In this stage, I will use the same algorithms that I used in section 6.1.3.
+
+% \subsubsection{Outputs}
+
+% The results of these steps will include the QAD framework, a set of DAGs (one per method implemented) depicting the causal connections between covariates, a table with the coefficients representing the strength, and the interpretation of the found causal connections by contrasting them against domain knowledge and all the known physical processes within the STAs compiled during the literature review process. This last outcome will include the answer to the queries or hypotheses formulated on the QAD framework.
+
+% Additionally, I will present an assessment of the relevance of incorporating information from the aquatic vegetation species for the purpose of understanding the system.
+
+% \subsection{Chapter 4: A Data-based Modeling Approach for Total Phosphorous Retention and Effluent Concentrations Using Causal Feature Selection and Aquatic Vegetation Information in the Stormwater Treatment Areas in the Everglades Area.} \label{sec:Chapter_4}
+
+% \subsubsection{Input Data}
+% I will preprocess and perform an Exploratory Data Analysis (EDA) on the 23 hydrological and biogeochemical variables collected by the SFWMD and the aquatic vegetation indices provided in Sections 6.2 and 6.3. 
+
+% \subsubsection{Feature Selection}
+
+% For feature selection, I will use the output of Sections 6.1 and 6.3. This means that I will select only variables with a significant causal connection with TP as input data.
+
+% \subsubsection{Model Selection}
+
+% As I am proposing a data-based approach in this section, I will select a statistical approach and an ML/DL approach. The selection of the algorithms will be based on the literature review process.
+
+% \subsubsection{Statistical Metrics of Performance}
+
+% To compare this model's results with previous studies, I will use the same statistical performance metrics, namely, the coefficient of determination ($ R2$) and the NSE.
+
+% \subsubsection{Outputs}
+
+% A new set of data-based models for TP retention and effluent concentration, validated through physical principles (using domain knowledge), statistical analysis (using sensitivity analysis), and causal inference, incorporating the dynamics of aquatic vegetation, along with their performance metrics. 
+
+% \subsection{Chapter 5: Causal model evaluation of mechanistic P models in the STAs: A causal strategy to validate and improve mechanistic models. } \label{sec:Chapter 5}
+
+% In this study, I proposed to compare the data-driven causal DAG (derived from real-world observations) with the causal DAG generated from simulation outputs of existing mechanistic models. 
+
+% My working hypothesis is that by comparing the causal relationships in the model-based DAGs with the ones from the observational data I will be able to validate which models' assumptions are supported by empirical evidence and which are missing. This validation method can provide concrete targets for model improvement.
+
+% With this proposed approach, I intend to compare whether the causal relationships in the model-based causal DAG align with the ones obtained from the observational data. Missing causal connections in the model-based causal DAG may suggest model misinterpretations or incorrect parametrization and can provide specific targets (covariates) that need to be re-calibrated to improve model performance. On the other side, models that show close agreement with the observational data-based causal DAG can inform modelers about the most important covariates.
+
+% \subsection{Methodology}
+
+% \begin{enumerate}
+%     \item Obtain the causal discovery DAG from observational data (i.e., the outcomes of sections 6.1 and 6.3).
+%     \item Run the selected existing mechanistic models of the STAs using the same input conditions used in the observational dataset.
+%     \item Use the same causal discovery algorithm on the model-generated time series.
+%     \item Obtain a model-based causal for each mechanistic model that was selected following the same methodology described in sections 6.1 and 6.3.
+%     \item Compare the observational data-driven DAGs with the mechanistic models-based DAGs via visual inspection and through adjacency-matrices.
+%     \item Interpret the discrepancies between DAGs using domain knowledge and generate a list of potential improvement suggestions for the mechanistic models.
+% \end{enumerate}
+
+% \subsubsection{Outputs}
+
+% A side-by-side comparison between the observational- and the model-based causal DAGs highlighting those relationships that could have been overlooked or misrepresented in the current formulation of those models. This will be accompanied by adjacency matrices that will compare the number of matches and mismatches between both DAGs.
+
+
+% \begin{comment}
+
+% \section{Available Resources} \label{sec:Available Resources}
+
+% \subsection{Causal learning}
+% \begin{itemize}
+%     \item DBHYDRO time series datasets from each STA from 2009 to 2024.
+%     \item Domain knowledge from literature review
+%     \item Set of Causal Learning libraries for the implementation of the algorithms. See Table 1.
+% \end{itemize}
+% \subsection{Satellite imagery}
+% \begin{itemize}
+%     \item DBHYDRO time series datasets from each STA from 2009 to 2024.
+%     \item Landsat 8 (15 m resolution) satellite imagery from 2013 to 2024
+%     \item Sentinel 2 (10 m resolution) imagery from 2015 to 2024.
+%     \item Detailed aquatic vegetation maps from 2003 for STA 2 and from 2005 for STA 1.
+%     \item PlanetScope (3 m resolution) satellite imagery from 2009 to 2024.
+% \end{itemize}
+
+% % Please add the following required packages to your document preamble:
+% % \usepackage{graphicx}
+% % \usepackage[table,xcdraw]{xcolor}
+% % Beamer presentation requires \usepackage{colortbl} instead of \usepackage[table,xcdraw]{xcolor}
+% \begin{table}[H!]
+% \caption{}
+% \label{sec:Causal Learning Libraries}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{|cc|}
+% \hline
+% \rowcolor[HTML]{EEEEEE} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{EEEEEE}{\color[HTML]{222222} \textbf{Method}}} &
+%   {\color[HTML]{222222} \textbf{Software}} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{2}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} \textbf{Causal discovery}}} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} PC, tsFCI}} &
+%   {\color[HTML]{222222} Tetrad, causal-learn, pcalg, Tigramite, MXM, unlearn/unlearn, PyWhy} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} PCMCI, PCMCI+, LPCMCI}} &
+%   {\color[HTML]{222222} Tigramite} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} GES}} &
+%   {\color[HTML]{222222} Tetrad, causal-learn, pcalg} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} MMHC}} &
+%   {\color[HTML]{222222} MXM, unlearn/dbnlearn} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} VARLiNGAM}} &
+%   {\color[HTML]{222222} causal-learn} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Joint Causal Inference}} &
+%   {\color[HTML]{222222} pcalg} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} seqICP}} &
+%   {\color[HTML]{222222} InvariantCausalPrediction} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} CCM}} &
+%   {\color[HTML]{222222} rEDM} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Granger causality}} &
+%   {\color[HTML]{222222} causal-learn, statsmodels} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} DYNOTEARS}} &
+%   {\color[HTML]{222222} Causalnex} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{2}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} \textbf{Causal effect estimation}}} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Path method}} &
+%   {\color[HTML]{222222} Tigramite} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Optimal adjustment}} &
+%   {\color[HTML]{222222} Tigramite, pcalg} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Adjustment}} &
+%   {\color[HTML]{222222} pcalg, Tigramite, ditty, CausalFusion, PyWhy} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Front-door adjustment, do-calculus}} &
+%   {\color[HTML]{222222} CausalFusion} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Instrumental variables}} &
+%   {\color[HTML]{222222} ditty, CausalFusion, Linearmodels} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Double machine learning}} &
+%   {\color[HTML]{222222} econML} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Causal transportability}} &
+%   {\color[HTML]{222222} CausalFusion} \\ \hline
+% \rowcolor[HTML]{FFFFFF} 
+% \multicolumn{1}{|c|}{\cellcolor[HTML]{FFFFFF}{\color[HTML]{222222} Fixed-effects panel regression}} &
+%   {\color[HTML]{222222} Linearmodels} \\ \hline
+% \end{tabular}%
+% }
+% \end{table}
+
+% \end{comment}
+\newpage
+%\bibliographystyle{plainnat}
+\bibliography{bibliography}
+
+\end{document}

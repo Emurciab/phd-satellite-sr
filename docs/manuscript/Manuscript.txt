@@ -1,0 +1,1143 @@
+\documentclass[a4paper,fleqn]{cas-sc}
+% \documentclass[a4paper,fleqn,twocolumn]{cas-sc}
+\usepackage{fancyhdr} % Include the fancyhdr package
+\usepackage{graphicx}
+\usepackage[normalem]{ulem}
+\usepackage{amssymb}
+\usepackage{lscape}
+\usepackage{longtable}
+\usepackage{graphicx} % for \resizebox
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{newunicodechar}
+\newunicodechar{−}{\textminus}
+
+\makeatletter
+\def\ps@pprintTitle{%
+ \let\@oddfoot\relax % Remove the footer for odd pages
+ \let\@evenfoot\relax % Remove the footer for even pages
+% \let\@evenhead\relax % Remove the header for even pages
+}
+\makeatother
+
+% Apply the same style for subsequent pages
+\pagestyle{fancy}
+\fancyhf{} % Clear all header and footer fields
+%\renewcommand{\headrulewidth}{0pt} % Remove header line
+\renewcommand{\footrulewidth}{0pt} % Remove footer line
+
+
+\usepackage[authoryear]{natbib}
+\bibliographystyle{cas-model2-names}
+
+
+\usepackage{url} 
+\usepackage{lineno}
+\usepackage{soul}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage[binary-units=true]{siunitx}
+\usepackage{graphicx}
+\usepackage[figurename=Fig.,labelfont=bf,labelsep=period]{caption}
+\usepackage{float} 
+\usepackage{subcaption}
+\renewcommand\thesubfigure{(\alph{subfigure})}
+\usepackage{hyphenat}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsbsy}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{optidef}
+\usepackage{appendix}
+\usepackage{calc}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{blindtext}
+\usepackage{marginnote}
+\usepackage[all]{nowidow}
+\usepackage{booktabs,tabularx}
+\usepackage{placeins}
+\usepackage{booktabs}
+
+\usepackage{booktabs}
+\usepackage{threeparttable}
+\setlength{\marginparwidth}{3cm}
+\usepackage{paralist}
+\providecommand{\norm}[1]{\lVert#1\rVert}
+\providecommand{\norm}[1]{\lVert#1\rVert}
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{lemma}{Lemma}
+\newtheorem{remark}{Remark}
+\newtheorem{definition}{Definition}
+\newtheorem{proof}{Proof}
+\newcommand*{\Scale}[2][4]{\scalebox{#1}{$#2$}}%
+\newcommand*{\Resize}[2]{\resizebox{#1}{!}{$#2$}}%
+
+\def\tsc#1{\csdef{#1}{\textsc{\lowercase{#1}}\xspace}}
+\tsc{WGM}
+\tsc{QE}
+\tsc{EP}
+\tsc{PMS}
+\tsc{BEC}
+\tsc{DE}
+
+\usepackage{setspace}
+
+
+\begin{document}
+
+
+% \linenumbers
+
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+
+\let\WriteBookmarks\relax
+% \def\floatpagepagefraction{1}
+% \def\textpagefraction{.001}
+%\linespread{1.5} 
+\shorttitle{Attention-based SR for Aquatic Vegetation in Constructed Wetlands}
+
+\title [mode = title]{Attention-based Super-resolution Algorithms to generate dense High-Resolution Satellite Imagery from Aquatic Vegetation in Constructed Wetlands.}
+
+
+\newpage
+
+\author[1]{Eduart Murcia}[orcid=0000-0002-7862-0926]
+
+
+\author[1]{Sandra M. Guzmán}[orcid=0000-0003-0735-7179]
+\ead{sandra.guzmangut@ufl.edu}
+
+\author[2]{Elise Morrison}[orcid=0000-0003-2569-4259]
+
+\author[3]{Jasmeet Judge}[orcid=0000-0001-9849-7411]
+
+\author[4]{Stefan Gerber}[orcid=0000-0002-1474-4188]
+
+\author[5]{Thomas James}[orcid=0000-0001-9849-7411]
+
+\author[6]{Helen Velásquez Duron}[]
+
+
+\affiliation[1]{organization={University of Florida, Department of Agricultural and Biological Engineering, Indian River Research and Education Center, 2199-South Rock Road},
+    city={Fort Pierce, Florida, 34945},
+    country={USA}}
+
+\affiliation[2]{organization={University of Florida, Department of Environmental Engineering Sciences, Black Hall, 1128-Center Dr},
+    city={Gainesville, Florida, 32603},
+    country={USA}}
+    
+\affiliation[3]{organization={University of Florida, Department of Agricultural and Biological Engineering, 1741-Museum Rd.},
+    city={Gainesville, Florida, 32603},
+    country={USA}}
+
+\affiliation[4]{organization={University of Florida, Department of Soil, Water, and Ecosystem Sciences, McCarty Hall A, 1692-McCarty Dr.},
+    city={Gainesville, Florida, 32603},
+    country={USA}}
+
+\affiliation[4]{organization={South Florida Water Management District},
+    city={West Palm Beach, Florida},
+    country={USA}}
+
+\affiliation[6]{organization={North Carolina State University, Department of Biological and Agricultural Engineering, Weaver Laboratories, 130, 3110-Faucette Dr},
+    city= {Raleigh, NC 27606},
+    country={USA}}
+
+\begin{abstract}
+\doublespacing
+
+Freely available moderate-resolution satellite imagery such as Sentinel-2 has expanded remote sensing (RS) for environmental monitoring, but its spatial resolution limits fine-scale applications such as mapping aquatic vegetation dynamics in constructed wetlands. Super-resolution (SR) algorithms can enhance spatial resolution and generate dense high-resolution (HR) datasets from such imagery, yet existing SR models remain limited as they are mostly designed for natural images, are rarely trained on real-world HR data, do not optimize spectral fidelity, do not support non-integer scale factors, and do not handle the multi-resolution band structure required by quantitative RS applications. The heterogeneous native resolutions of satellite sensors, the scarcity of real-world paired low- and HR data, and the need to preserve cross-band relationships require domain-specific architectures and data pipelines. Recent studies show that combining multi-temporal fusion, domain-specific loss functions, and real-world training data improves SR accuracy and spectral fidelity when models are adapted to the target application. We introduce EMO-TSR, an Enhanced Multi-Output Temporal SR model that jointly processes Sentinel-2 10~m and 20~m bands using dual-branch encoding with gated cross-resolution fusion, temporal cross-attention over three acquisitions, and adaptive up-sampling for non-integer scale factors. Trained on 6{,}813 real-world paired Sentinel-2–PlanetScope patches from five constructed wetland sites, EMO-TSR achieves state-of-the-art performance, improving PSNR by +3.83~dB over bilinear interpolation (48\% ERGAS reduction) and outperforming the best domain-specific SR model by $+2.41$~dB on the 10~m branch and $+5.30$~dB on the 20~m branch. Applied to aquatic vegetation monitoring across five stormwater treatment areas in South Florida, EMO-TSR generates spectrally consistent 3~m (RGB) and 6~m (red-edge, NIR) imagery that preserves the band relationships required for vegetation index computation, enabling spatiotemporal vegetation mapping at a detail otherwise requiring cost-prohibitive very-high-resolution imagery. EMO-TSR contributes both advancing the field of SR and providing a validated framework for frequent HR imagery generation from freely available satellite data for aquatic vegetation monitoring and water management.
+
+
+% Contributions: 
+% Real-world applications with additional challenges: Temporarily dense datasets are needed, which makes it more challenging to have access to high quality training data; an optimization problem as function of both data quality and data availability. Many SR algorithms have been developed using synthetically degraded data whose radiometric and spatial characteristics do not reflect real world characteristics, therefore, under performing when tested in real world datasets. Recent efforts to make real-world datasets available to train and test algorithms have provided significant improvements in domain transfer applications and have provided a clearer idea of actual model performance \citep{AYBAR2026115222}. However, challenges persist as domain specific data needs to be released to fully allow a wider range of domain transfer applications. Additionally, perfectly filtered data (i.e., cloud free, bad-pixels free) does not represent real-world conditions in many downstream applications. For instance, regions in tropical areas experience seasonal impediments to acquire perfectly cloud free satellite data for several months due to the convective cloud systems during the summer seasons. This condition become a major challenge for SR models trained only on flawless data. 
+
+% Monitoring is a temporally dense downstream application of SR models where not only higher spatial resolution and spectral fidelity is relevant, but also generating temporarily dense satellite imagery. For instance, aquatic vegetation monitoring is a field where frequent HR imagery would be necessary to map the spatiotemporal dynamics of the different species with sufficient precision. Modern SR algorithms have are promising solutions to generate HR imagery for this purposes; however, it is necessary to develop frameworks that are adapted to the specific needs of each downstream application.
+
+\end{abstract}
+\begin{keywords}
+Super-Resolution \sep Data Fusion \sep High-Resolution Imagery \sep Deep Learning \sep Ecological Monitoring \sep Constructed Wetlands
+\end{keywords}
+
+\maketitle
+\newpage
+
+\section{Introduction}\label{sec:Introduction}
+
+Coarse spatial resolution remains a major limitation for many remote sensing (RS) monitoring applications because very-high-resolution imagery is often unavailable or prohibitively expensive \citep{Kowaleczko2023}. Freely available satellite imagery such as Sentinel-2 has greatly expanded access to RS-based monitoring and is widely used in applications including aquatic vegetation mapping in natural and constructed wetlands. However, the moderate spatial resolution of these datasets generally restricts their use to relatively homogeneous vegetation zones or coarse-scale estimations \citep{eduartmMurcia}. Furthermore, Sentinel-2 acquires spectral bands at heterogeneous native resolutions, including 10~m bands in parts of the visible and near-infrared spectrum and 20~m bands in the red-edge, narrow near-infrared, and shortwave-infrared regions, introducing a multi-resolution input structure that existing super-resolution (SR) methods do not natively support.
+
+Recent advances in machine learning (ML) and deep learning (DL) have enabled the development of SR algorithms capable of enhancing the spatial resolution of coarse RS imagery. Modern SR models have shown promising performance; however, they have been developed almost exclusively for natural images, targeting RGB inputs at integer up-scaling factors and not focusing on the spectral consistency required by quantitative RS applications \citep{Kowaleczko2023,RASHID2025100335}. Satellite SR, a domain-specific SR field of knowledge, involves additional challenges including non-integer scale factors, multispectral inputs across different native resolutions, and physically meaningful band relationships that must be preserved for downstream analyses such as vegetation index computation and water-quality estimation. These requirements are not fully addressed by current state-of-the-art architectures. Domain-specific DL-SR frameworks have been lately introduced \citep{AYBAR2026115222}, providing important advances in multi-spectral, multi-temporal, and multi-spatial resolution input data management; however, they are non-reference SR algorithms that lack HR reference images that could guarantee high-level fidelity on the reconstructed images.
+
+A further limitation is that many SR models have been evaluated primarily using synthetically degraded imagery rather than real satellite observations. This limitation is due to the scarcity of large-scale datasets containing paired low- (LR) and high-resolution (HR) images acquired under real-world conditions \citep{Kowaleczko2023,RASHID2025100335}. Recent efforts to release real-world SR datasets have improved model development and domain-transfer applications while providing a clearer understanding of real-world model performance \citep{AYBAR2026115222}. Further efforts in this direction are needed to create domain-specific SR algorithms that can generate physically consistent and trustworthy high-resolution representations under diverse operating conditions.
+
+Many downstream RS applications require temporally dense datasets, making the availability of high-quality training data a complex optimization problem that depends on both data quality and data availability. Complementary information available across multiple revisits of the same scene can reduce noise, resolve ambiguous surface types, and compensate for partial cloud contamination. Multiple variants of data fusion strategies have been proposed to fill the gaps that otherwise limit the use of information redundancy and complementary observations from different sources \citep{MICHEL2026115159,AYBAR2026115222}. However, most existing SR algorithms lack explicit architectural mechanisms to handle multi-temporal imagery. In addition, in many real-world scenarios, restricting RS imagery to perfectly filtered scenes (e.g., cloud-free and artifact-free) or training models only under those conditions would reduce data availability and limit model generalization. These limitations are particularly important for downstream monitoring applications that require both frequent observations and sufficient spatial detail.
+
+Aquatic vegetation monitoring in constructed wetlands is one example of such an application. In those systems, which serve as critical nutrient-removal buffers for downstream ecosystem, frequent observations are needed to capture the spatiotemporal dynamics of vegetation communities with sufficient spatial detail. In these contexts, SR methods represent a promising solution to generate HR imagery from widely available moderate-resolution satellite data. However, to fully support these applications, SR frameworks must address the specific constraints of downstream monitoring, including spectral fidelity, temporal consistency, and multi-resolution input handling.
+
+In this study, we present the following contributions: 1) We compile a real-world dataset of 6{,}813 multi-temporal paired Sentinel-2 and PlanetScope (3~m) patches from five constructed-wetland regions (2022--2025), with sub-pixel co-registration and spectral harmonization, and use it to train and evaluate all models under operational conditions. 2) We systematically compare three SR architecture families (attention-based, GAN-based, and frequency-based), four temporal sequence construction strategies, two prediction paradigms (direct and residual learning), and three up-sampling modules, yielding 14 model variants additionally benchmarked against four state-of-the-art pretrained SR algorithms. 3) We develop the Enhanced Multi-Output Temporal SR model (EMO-TSR), which jointly processes Sentinel-2 bands at 10\,m and 20\,m native resolution through dual-branch encoding with gated cross-resolution fusion, temporal cross-attention over three acquisitions, and content-aware adaptive up-sampling for non-integer scale factors, achieving +3.83~dB PSNR over bilinear interpolation and outperforming the best domain-specific SOTA model by +2.41~dB (10\,m) and +5.30~dB (20\,m). 4) We conduct an ablation study isolating the contribution of each architectural component under both prediction paradigms, and quantify prediction uncertainty through a heteroscedastic deep ensemble that decomposes total uncertainty into aleatoric and epistemic components. 5) We evaluate the generalization capability of the model on a held-out test set (20\% of the total dataset) and discuss the transferability of the proposed architecture to other sensors and regions.
+
+
+
+\section{Data Source and Study Area}\label{Data Source and Study Area}
+    
+    \subsection{Study area}
+
+        The study was conducted using data from five stormwater treatment areas (STAs) sites located in South Florida (see Figure \ref{fig:Figure1_Map}). Florida's STAs represent the world's largest constructed freshwater wetland system, engineered to reduce phosphorus loading to the Everglades Restoration areas in South FL USA following decades of agricultural and other anthropogenic practices. With an area of about 250 km$^2$, they have retained $\geq$3,721 metric tons of total phosphorus over 31 years and reduced loads by 78\% through plant uptake, settling, soil accretion, and co-precipitation \citep{evergladesjames2024}. The STAs have a diverse, temporally and spatially dynamic, habitat composition, with major dominance of cattail (\textit{Typha domingensis}), that are strongly influenced by several environmental drivers along with active management practices seeking to maintain water treatment performance \citep{SFWMD_2025_STA_SciencePlan}. Because of this, researchers and managers have made efforts to achieve spectral separability of different emergent, floating, and submerged aquatic vegetation species to allow detection and mapping of vegetation over time \citep{algorithm_gann_2022}. Several technical and economic challenges have constrained the systematic use of satellite-based monitoring systems for these purposes; however, ML and DL are offering new alternatives to make these systems technically viable for wetland monitoring \citep{eduartmMurcia}. In this study, we propose a novel domain-specific DL SR algorithm to generate spectrally validated HR satellite imagery from open source Sentinel-2 imagery that can contribute to accurately map vegetation dynamics at a frequent pace while addressing some of the economic challenges that limit the use of high and very-high resolution satellite imagery.
+
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\linewidth]{Figure1_Map.png}
+            \caption{Geographic location and general aquatic vegetation composition of the five constructed wetlands (Stormwater Treatment Areas, STAs) in South Florida from which satellite imagery was acquired.}
+            \label{fig:Figure1_Map}
+        \end{figure}
+    
+    \subsection{Satellite remote sensing data}
+
+        We incorporated satellite RS data from two platforms: Sentinel-2, and SuperDove PlanetScope. Table \ref{tab:Tab1_satellite_data} summarizes the dataset used in this research. Additional information from each source is discussed below.
+
+        \begin{table}[htbp]
+        \centering
+        \caption{Summary of the technical characteristics of the satellite imagery used in this study, the study area, and the processed input training data.}
+        \label{tab:Tab1_satellite_data}
+        \begin{threeparttable}
+        \small
+        \begin{tabular}{p{4.2cm} p{4.5cm} p{4.5cm}}
+        \toprule
+        \textbf{Characteristic} & \textbf{PlanetScope (HR)} & \textbf{Sentinel-2 (LR)} \\
+        \midrule
+        
+        \multicolumn{3}{c}{\textbf{Sensor specifications}} \\
+        \midrule
+        
+        Platform & SuperDove & Sentinel-2A/B MSI \\
+        Spatial resolution & 3m GSD & 10~m / 20~m GSD \\
+        Revisit time & Daily & 5 days \\
+        Swath width & $\sim$24\,km (per scene) & 290\,km \\
+        Radiometric resolution & 12-bit & 12-bit \\
+        Data product & Surface reflectance\tnote{} & L2A surface reflectance \\
+        
+        \midrule
+        \multicolumn{3}{c}{\textbf{Spectral bands used}} \\
+        \midrule
+        
+        Blue & B2 (465--515\,nm)\tnote{} & B2 (458--523\,nm), 10~m \\
+        Green & B4 (547--583\,nm)\tnote{} & B3 (543--578\,nm), 10~m \\
+        Red & B6 (650--680\,nm)\tnote{} & B4 (650--680\,nm), 10~m \\
+        Red Edge & B7 (697--713\,nm)\tnote{} & B5 (698--713\,nm), 20~m \\
+        NIR & B8 (845--885\,nm)\tnote{} & B8A (855--875\,nm), 20~m \\
+        Total bands & 5 & 5 (3$\times$10~m + 2$\times$20~m) \\
+        
+        \midrule
+        \multicolumn{3}{c}{\textbf{Quality filtering}} \\
+        \midrule
+        
+        Scene cloud cover & $<$20\% (\texttt{q\_cloud}) & $<$60\% (\texttt{CLOUDY\_PIXEL\_PERCENTAGE}) \\
+        AOI cloud fraction & & $<$10\% (\texttt{AOI\_CLOUD\_FRAC}) \\
+        UDM confidence & $\geq$60\% & \\
+        
+        \midrule
+        \multicolumn{3}{c}{\textbf{Study area and temporal coverage}} \\
+        \midrule
+        
+        Regions & \multicolumn{2}{c}{STA-1E, STA-1W, STA-2, STA-3/4, STA-5/6} \\
+        Time period & \multicolumn{2}{c}{January 2022 -- January 2025 (3 years)} \\
+        Temporal matching & \multicolumn{2}{c}{Nearest-neighbour, $\pm$7\,day tolerance} \\
+        Matched image pairs & \multicolumn{2}{c}{665 across 25 region-year combinations} \\
+        
+        \midrule
+        \multicolumn{3}{c}{\textbf{Training data summary}} \\
+        \midrule
+        
+        Pairs processed\tnote{} & \multicolumn{2}{c}{268 (from 11 region-year combinations, 2022--2024)} \\
+        Total patches generated & \multicolumn{2}{c}{6,813} \\
+        Training set & \multicolumn{2}{c}{5,446 (5,346 train / 100 validation)} \\
+        Test set & \multicolumn{2}{c}{1,367 (1,360 after excluding 7 corrupted samples)} \\
+        Temporal sequence length & \multicolumn{2}{c}{$T = 3$ frames} \\
+        HR tile size & \multicolumn{2}{c}{$256 \times 256$\,px at 3m} \\
+        LR tile size (10~m) & \multicolumn{2}{c}{$77 \times 77$\,px} \\
+        LR tile size (20~m) & \multicolumn{2}{c}{$39 \times 39$\,px} \\
+        Scale factor & \multicolumn{2}{c}{$\times 3.33$} \\
+        
+        \bottomrule
+        \end{tabular}
+                
+        \end{threeparttable}
+        \end{table}
+        
+        \subsubsection{Sentinel-2 data}
+
+            The Sentinel-2 Level 2A is a processed product of the Copernicus Sentinel-2 European mission launched in 2015 primarily for land services, including the monitoring of vegetation, soil, and water cover, as well as the observation of inland waterways and coastal areas (Copernicus, 2026). It has 13 spectral bands (four at 10~m, six at 20~m, and three at 60~m spatial resolution), and provides atmospherically corrected surface reflectance derived from the associated Level-1C products. These products were accessed through the API service from Google Earth Engine. Five spectrally compatible bands (i.e., centered around the same wavelength) were accessed and preprocessed using the GEE web service.
+
+        \subsubsection{PlanetScope data}
+
+            The PlanetScope PSB.SD SuperDove fleet was released in 2020 with an extended spectral payload that includes 8 bands (i.e., red, green, blue, NIR, red-edge, green I, yellow, and coastal blue). The pass-band filters for PS2.SD were specifically chosen to closely match and ensure interoperability with those of Sentinel-2 and match the Blue, Green, Red, and NIR channels of SuperDove (PlanetScope, 2026). We used surface reflectance assets, which are orthorectified and radiometrically corrected products; however, to guarantee radiometric and geometric consistency with Sentinel-2 products, we performed co-registration and sub-pixel band-harmonization using Sentinel-2 products as reference.
+
+\section{Methodology}\label{Methodology}
+
+    \subsection{Preprocessing}
+        
+        We collected the training data from five constructed wetland sites covering a total area of approximately 250~km$^2$. These regions were selected because they are part of an ongoing water restoration program that requires frequent monitoring of aquatic vegetation dynamics \citep{eduartmMurcia}. In addition, the sites contain diverse vegetation species, many commonly found in constructed wetland systems. This diversity facilitates the generalization of the trained model to other wetland environments. Data were collected between 2022 and 2025, as 8-band PlanetScope imagery has been consistently available since 2022. The resulting dense multi-year dataset captures complete phenological cycles of aquatic vegetation species, as well as seasonal atmospheric, anthropogenic, and environmental effects on vegetation dynamics.
+        
+        PlanetScope imagery was first manually selected through visual quality inspection and filtering using Planet’s web interface and subsequently retrieved to a Google Earth Engine (GEE) repository through the Planet API. The code used for the retrieval process is available \href{https://colab.research.google.com/drive/1lph6r4xiinsSpOT98PCLdRg2JrL3e2Lb?usp=sharing}{here}. Sentinel-2 imagery was retrieved locally from GEE using its API service. Prior to downloading, we applied several preprocessing steps. These included clipping Sentinel-2 and PlanetScope scenes to a common area of interest (AOI) and temporal window, filtering images with cloud coverage greater than $10\%$, and selecting spectrally compatible bands. Specifically, we selected the Sentinel-2 bands centered around wavelengths comparable to their PlanetScope counterparts: B2 (blue), B3 (green), B4 (red), B5 (red-edge), and B8A (narrow near-infrared, NIR). Among these bands, B2, B3, and B4 have a spatial resolution of 10 m, while B5 and B8A have a spatial resolution of 20 m.
+        
+        Because surface reflectance conditions can vary substantially within a single day, we computed an image quality score that considered both cloud coverage and temporal distance from solar noon. This metric allowed us to prioritize images acquired under minimal atmospheric interference and consistent illumination conditions. After filtering low-quality scenes, Sentinel-2 and PlanetScope images were paired when their acquisition timestamps fell within a $\pm$ 7-day tolerance window. This temporal tolerance was selected to maximize the number of valid image pairs while minimizing the risk of misleading phenological differences, as significant vegetation changes are unlikely to occur within such a short time period \citep{Schroder2024Exploring}. These procedures resulted in a dataset of 6813 paired samples consisting of 10-m and 20-m Sentinel-2 input images and 3-m PlanetScope target images, with patch sizes of $77\times 77$ and $256 \times 256$ pixels, respectively.
+        
+        Each satellite tile was subsequently divided using a grid-based splitting procedure, followed by tile-based parallel downloading. This strategy enabled efficient data retrieval and model training while preventing excessive local memory usage. Server-side parallel processing was limited to a maximum of 14 concurrent processes to remain within the Google Earth Engine API call limits. Before downloading, each tile was validated to ensure sufficient spatial coverage ($\geq 90\%$ valid pixels). Sentinel-2 tiles were stored as separate arrays for 10-m and 20-m bands. The resulting patches had dimensions of $77 \times 77$ pixels for the 10-m bands and $39 \times 39$ pixels for the 20-m bands. PlanetScope patches were downloaded with dimensions of $256 \times 256$ pixels.
+        
+        During local processing, we performed sub-pixel co-registration to align the corresponding high-resolution (HR) and low-resolution (LR) patches. This was achieved using the cross-correlation algorithm implemented in AROSICS, with Sentinel-2 imagery used as the reference and PlanetScope imagery treated as the shifted dataset. The registration process allowed a maximum shift of 20 pixels and up to 10 convergence iterations. Sub-pixel alignment was performed using cubic interpolation. For image pairs that did not converge under these conditions, a fallback phase-correlation method was applied.
+        
+        To account for sensor-specific spectral response differences, we applied per-band histogram matching using the corresponding Sentinel-2 band as the reference. After tile downloading and splitting, we computed quality-control statistics for each patch pair, including detection of zero values, NaNs, atmospheric outliers, and extreme solar zenith angles. Frames with insufficient valid pixels (valid fraction $\leq 90\%$) were flagged and removed. Only patch pairs containing valid pixels across all data sources were retained for model training and evaluation.
+
+    \subsection{Temporal Sequence Construction}\label{Temporal Sequence Construction}
+    
+        Figure \ref{fig:Figure2_TempSeqCons} summarizes the temporal sequence construction strategy, which represents one of the main methodological contributions of this study to address current challenges in multi-temporal super-resolution (SR). We implemented a temporal sequence construction approach to exploit the information redundancy present in short-term ($\leq$ 30 days) multi-temporal satellite imagery. This strategy helps mitigate common data quality issues such as bad pixels, sensor malfunctions, and atmospheric interference. 
+        
+        To achieve this, we grouped three consecutive matched Sentinel-2–PlanetScope pairs acquired within a one-month period and used them as inputs to the model. Under this framework, the model learns to map low-resolution (LR) to high-resolution (HR) imagery not only from individual LR–HR pairs but also from multi-temporal image sequences. The maximum temporal gap between images was limited to 30 days to minimize phenological differences between observations. Within this time window, significant phenological changes in aquatic vegetation are unlikely to occur, thereby preventing the model from learning misleading relationships between LR and HR images representing different vegetation growth stages.
+        
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.6\linewidth]{Figure_2TempSeq.png}
+            \caption{Overview of the four temporal sequence construction approaches proposed. Each panel shows how the three temporal frames are used to generate the output super-resolved image.}
+            \label{fig:Figure2_TempSeqCons}
+        \end{figure}
+        
+        With three LR–HR pairs provided as inputs, several strategies can be used to incorporate the temporal information into the SR model. We designed and compared four architectures, within each modeling framework, to evaluate different approaches for handling multi-temporal information.
+        
+        \subsubsection{Multi-output}
+        
+            The first architecture, referred to as \textit{multi-output}, uses three encoder branches with shared weights to independently encode each LR frame (i.e., $LR_{t0}$, $LR_{t1}$, $LR_{t2}$) with shape [Batch-size, number-of-bands, height, width]. The overall architecture of this approach is illustrated in Figure \ref{fig:Figure2_TempSeqCons}. The encoded features from the three frames are stacked and passed through a temporal cross-attention block that aggregates global information across the sequence. This attention mechanism allows each frame to exchange information with the others, thereby exploiting temporal redundancy to reduce the effects of bad pixels and atmospheric noise. 
+            
+            For example, if $LR_{t1}$ contains cloud-contaminated regions while $LR_{t0}$ and $LR_{t2}$ are clear, the model can incorporate information from the clearer observations to improve the reconstruction of $LR_{t1}$. After the temporal attention stage, each frame is independently decoded and up-scaled using a multi-head decoder with shared weights. 
+            
+            The loss function is computed independently for each frame by comparing the predicted super-resolved output with its corresponding HR target. Additional details of the loss formulation are presented in Section \ref{Loss_function}. The three reconstruction losses are averaged to obtain the \textit{reconstruction loss}. In addition, a temporal consistency loss is computed as the absolute difference between the temporal changes in the predicted frames ($SR_{t0}-SR_{t1}$ and $SR_{t1}-SR_{t2}$) and the corresponding changes in the target HR frames ($HR_{t0}-HR_{t1}$ and $HR_{t1}-HR_{t2}$). The final loss is calculated as the sum of the reconstruction loss and a weighted temporal consistency loss.
+        
+        \subsubsection{Temporal-Fused}
+        
+            The second architecture, referred to as \textit{temporal-fused}, follows a similar encoding structure but does not include a temporal cross-attention mechanism. Instead, it assigns a weight to each encoded frame and combines them through a weighted sum to produce a single fused representation. This fused representation is then decoded and up-scaled to generate a single super-resolved output. In this approach, the temporal weighting mechanism enables the model to prioritize frames with higher-quality information. The architecture of the temporal-fused approach is illustrated in Figure \ref{fig:Figure2_TempSeqCons}.
+            
+        \subsubsection{Best Frame}
+        
+            The third architecture uses the previously computed image quality statistics to select the optimal HR frame within each temporal sequence. This selected HR frame is used as the reference target when computing the loss function against the single super-resolved output produced during the forward pass. The encoder, temporal weighting mechanism, decoder, and up-scaling components follow the same structural design used in the temporal-fused architecture. The corresponding architecture is shown in Figure \ref{fig:Figure2_TempSeqCons}.
+        
+        \subsubsection{Median}
+        
+            The fourth architecture computes the pixel-wise median across the three LR input frames for each spatial location. The resulting composite image is then used as input to generate a single super-resolved output. This approach aims to reduce the influence of noise and outliers by aggregating the temporal information through a robust statistical estimator. The architecture corresponding to this approach is also illustrated in Figure \ref{fig:Figure2_TempSeqCons}.
+
+    
+    
+    \subsection{Attention-based Super-Resolution Algorithm}\label{Attention-based SR}
+    
+        The backbone of the attention-based super-resolution (SR) model follows a standard attention architecture composed of a dual-branch encoder, a temporal attention module, and a decoder. Two prediction strategies were implemented: a \textit{direct prediction} approach and a \textit{residual} approach. In the direct approach, the super-resolved output is produced entirely by the neural network. In contrast, the residual approach defines the final output as the sum of a baseline prediction obtained through bilinear interpolation and a residual prediction generated by the attention-based network. In the former case, the model is expected to learn the complete image representation, whereas in the latter case the network focuses primarily on reconstructing high-frequency details such as edges and fine spatial structures. Figure~\ref{fig:Attention} provides an overview of the architecture. The same dual strategy (i.e., direct and residual prediction) was also implemented for the GAN-based and frequency-based approaches described in subsequent sections.
+    
+        \begin{figure}
+            \centering
+            \includegraphics[width=1\linewidth]{Figure_Attention.png}
+            \caption{Overview of the proposed backbone Attention-based Super-Resolution Algorithm. The diagram illustrates the main components of the proposed model architecture, their internal composition, and the data flow.}
+            \label{fig:Attention}
+        \end{figure}
+    
+        The encoder follows a dual-branch design, with one branch processing the 10~m resolution bands and a second branch processing the 20~m resolution bands independently. Each branch begins with an initial 7$\times$7 stem convolution followed by group normalization and a non-linear activation function (GeLU). A series of four residual blocks incorporating depth-wise separable convolutions is then applied, with Convolutional Block Attention Modules (CBAM) inserted at alternating blocks to efficiently capture spatial and spectral feature relationships. Both branches produce feature maps with 64 channels at their respective spatial resolutions.
+    
+        A temporal attention mechanism is subsequently applied to integrate information from three temporal frames $(t_0, t_1, t_2)$. The encoded LR frames from the same spatial location are each passed through an additional frame encoder module for feature refinement. The refined frame features are then pooled via global average pooling to derive frame-level descriptors, which are concatenated and processed through a multi-layer perceptron (MLP) with Softmax to compute per-frame attention weights. The encoded frames are stacked along the temporal dimension, and the attention weights are used to compute a weighted sum across frames. The resulting fused representation is subsequently convolved into a single feature map with dimensions $(\text{batch-size}, 64, H, W)$.
+    
+        The decoder receives the fused feature map and performs spectral consistency checks to preserve band relationships. This is achieved through convolutional kernels and non-linear transformations applied over averaged feature channels representing encoded spectral information. This process allows the network to learn and maintain relevant relationships between spectral channels. Finally, the refined feature maps are progressively up-scaled to reach the spatial resolution of the HR target.
+    
+    \subsection{Generative Adversarial Neural Networks}\label{GAN}
+    
+        In addition to the attention-based architecture described above, we implemented a second SR framework that incorporates a generative adversarial network (GAN) discriminator. In this architecture, the super-resolved images generated by the decoder are passed to a PatchGAN discriminator that evaluates their realism relative to the HR target images. The discriminator classifies overlapping image patches as real or fake using a series of strided convolutions with spectral normalization and Leaky ReLU activations, yielding a 70$\times$70 receptive field over the input. The discriminator learns to distinguish between generated SR images and real HR observations, while the generator learns to produce outputs that the discriminator classifies as realistic.
+    
+        The discriminator contributes an additional adversarial term to the loss function, which acts as a regularization component encouraging the generator to produce more realistic high-resolution representations. The discriminator was implemented as a dual-branch architecture with two parallel branches: one processing the RGB bands (10~m resolution) and another processing the NIR and red-edge bands (20~m resolution).
+    
+        As with the attention-based SR model, both direct prediction and residual prediction strategies were implemented for the GAN-based framework. Figure~\ref{fig:GAN} illustrates the architecture under both configurations.
+    
+        \begin{figure}
+            \centering
+            \includegraphics[width=1\linewidth]{Figure_GAN.png}
+            \caption{Overview of the proposed hybrid Attention-Generative Adversarial Network-based Super-resolution. The diagram illustrates the main components of the proposed model architecture and how the discriminator is incorporated in the workflow and the loss computation in the forward and backward passes.}
+            \label{fig:GAN}
+        \end{figure}
+    
+    \subsection{Frequency-based}\label{Frequency-based}
+    
+        Recent frequency-based SR algorithms have been proposed to better capture structural correlations and preserve textural information by incorporating frequency-domain representations of LR images. For example, \citet{miao2025} introduced an approach that combines frequency-domain transformations, low-rank regularization, and random sampling strategies to recover both global and local information in super-resolved images.
+    
+        Building on these ideas, we implemented a hybrid frequency- and attention-based SR architecture that incorporates fast Fourier transformations (FFT) at two stages of the model. The architecture shares the same building blocks used in the attention-based model (i.e., residual blocks with depth-wise separable convolutions and CBAM), but employs its own distinct frequency-aware encoder and predictor modules. A dedicated frequency encoder extracts multi-scale spatial features, which are then passed to a frequency-domain predictor that generates complex-valued tensors (real and imaginary components) representing the desired spectral content. An inverse FFT (iFFT) is subsequently applied to map these complex-valued predictions back to the spatial domain.
+    
+        Two prediction strategies were implemented (Figure~\ref{fig:Frequency}). In the residual approach, a high-frequency predictor generates only the high-frequency residual components as a complex-valued tensor. The iFFT converts these components into spatial high-frequency details such as edges and textures, which are then added to a bilinearly up-sampled baseline image. In the direct approach, a full-spectrum predictor generates both low-frequency (LF) and high-frequency (HF) components through separate prediction heads, which are combined using learnable soft frequency masks. The iFFT subsequently transforms this full-spectrum representation into the complete spatial-domain image. To improve training stability, a bilinear interpolation hint is still incorporated in this configuration.
+    
+        In addition, FFT is incorporated within the loss function to decompose both predicted and target images into their low-frequency and high-frequency components. This decomposition allows the loss formulation to emphasize high-frequency reconstruction errors by applying a larger weighting factor (2$\times$), thereby encouraging the model to better recover fine spatial details.
+            
+            \begin{figure}
+                \centering
+                \includegraphics[width=1\linewidth]{Figure_Freq.png}
+                \caption{Overview of the proposed hybrid Attention-Frequency decomposition-based Super-resolution. The diagram illustrates the main components of the frequency decomposition architecture and how it is incorporated in the workflow and the loss computation.}
+                \label{fig:Frequency}
+            \end{figure}
+
+    
+    \subsection{Loss-function and training} \label{Loss_function}
+    
+        The training objective combines multiple loss terms designed to capture spatial, spectral, and temporal characteristics of the reconstructed imagery. Spatial components account for pixel-level reconstruction accuracy, edges, and textural features, while spectral terms enforce the preservation of band relationships (e.g., band ratios). Temporal terms encourage consistency across multi-temporal predictions. Each model variant employed the subset of loss terms that best matched its architecture and prediction strategy. Table \ref{tab:LossComponents} summarizes the loss components used for each model variant.
+    
+    
+        \begin{table}[]
+        \caption{Summary of loss components terms and the weight coefficients assigned per model variant. NA values were used to represent the absence of the loss term in a model.}
+        \label{tab:LossComponents}
+        \begin{tabular}{ccccccccc}
+        \hline
+        \textbf{\begin{tabular}[c]{@{}c@{}}Loss\\ Component\end{tabular}} &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Best\\ frame\end{tabular}} &
+        \textbf{Median} &
+        \textbf{Temporal} &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Multi-\\ Output\end{tabular}} &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Enhanced\\Multi-Output\end{tabular}} &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Freq \\ Residual\end{tabular}} &
+        \textbf{\begin{tabular}[c]{@{}c@{}}Freq \\ Direct\end{tabular}} &
+        \textbf{GAN} \\ 
+        \hline
+        \textbf{Pixel (L1+0.1×MSE)} & 1.0 & 1.0 & 1.0 & 1.0 & 1.0 & 1.0 & 1.0 & 1.0 \\
+        \textbf{SAM} & 0.137 & 0.137 & 0.137 & 0.137 & 0.137 & 0.137 & 0.137 & 0.5 \\
+        \textbf{Gradient (Sobel)} & 0.01 & 0.01 & 0.01 & 0.01 & 0.01 & 0.01 & 0.01 & 0.01 \\
+        \textbf{VGG Perceptual} & 0.1 & 0.1 & 0.1 & NA & NA & 0.1 & 0.1 & 0.1 \\
+        \textbf{Perceptual Schedule} & Fixed & Fixed & Fixed & NA & NA & NA & NA & NA \\
+        \textbf{Temporal Consistency} & NA & NA & 0.1 & 0.5 & 0.5 & NA & NA & NA \\
+        \textbf{Frequency Loss} & NA & NA & NA & NA & NA & 0.5 & 0.5 & NA \\
+        \textbf{Adversarial (LSGAN)} & NA & NA & NA & NA & NA & NA & NA & 0.001 \\
+        \hline
+        \end{tabular}
+        \end{table}
+    
+        \subsubsection{Pixel-wise Loss}
+    
+            This loss term aims to optimize full-reference image quality metrics (e.g., PSNR) \citep{Xiangyu2022}. It is defined as the sum of the mean absolute error (MAE) and a weighted mean squared error (MSE). The MAE component is robust to outliers and preserves edges better than pure MSE, while the weighted MSE component helps produce smoother gradients near convergence. This loss term serves as the core component of the total loss for all model variants and is complemented by additional losses to address known limitations of $\ell_1$ and $\ell_2$ metrics, such as their limited ability to capture the mean or median solution in high-dimensional spaces \citep{Xiangyu2022}. Table \ref{tab:loss_functions} presents the mathematical definitions of the loss functions used to train the SR models.
+    
+        \subsubsection{Spectral Angle Mapper Loss (SAM)}
+    
+            The Spectral Angle Mapper (SAM) loss measures spectral similarity via the cosine distance between normalised spectral vectors at the pixel level, defined as $1 - \bar{\cos\theta}$, where $\bar{\cos\theta}$ is the spatially-averaged cosine similarity computed along the channel dimension. This formulation penalises relative spectral shifts that may remain hidden when using pixel-wise losses such as MSE, and preserves inter-band ratios without requiring the computation of the inverse cosine. The SAM loss was applied to all SR model variants. In the GAN variant, the SAM weight was increased to 0.5 (from 0.137 used in all other variants) to provide stronger spectral supervision against the adversarial perturbations introduced by the discriminator.
+    
+        \subsubsection{Gradient Loss (Sobel Edge Preservation)}
+    
+            This loss term applies Sobel filters ($3\times3$) along the x- and y-directions for each spectral channel. The resulting gradients are used to enforce edge preservation in the super-resolved images and encourage the reconstruction of sharp spatial features.
+    
+        \subsubsection{VGG Perceptual Loss}
+    
+            The perceptual loss is computed as the L1 distance between feature maps extracted from corresponding layers of a pretrained VGG16 network (relu1\_2, relu2\_2, and relu3\_3). The input images are scaled by a factor of 2.5 prior to feature extraction to shift the low dynamic range of satellite reflectance values (mean $\approx 0.05$) closer to the ImageNet distribution expected by VGG. This loss is applied only to the RGB (10~m) branch, as the VGG network is designed for three-channel inputs. The objective of this loss is to encourage the model to reproduce high-level texture and structural characteristics present in the HR target images.
+    
+        \subsubsection{Temporal Consistency Loss}
+    
+            The temporal consistency loss measures the difference between predicted temporal changes and the corresponding changes in the HR target images. Specifically, it penalizes the model when the predicted variation between consecutive frames does not match the true temporal variation. This loss promotes temporally consistent predictions and was applied to the attention-based temporal (weight 0.1), multi-output (weight 0.5), and enhanced multi-output (weight 0.5) models. These architectures maintain multi-temporal tensors as inputs and produce per-frame predictions, unlike the median, best-frame, and frequency-based variants, which produce a single output from the three input frames.
+    
+        \subsubsection{Frequency Loss}
+    
+            The frequency loss is a dedicated loss component used in the residual frequency-based SR model to emphasise the recovery of high-frequency spatial details. The signal is decomposed into low- and high-frequency components via FFT using a smooth sigmoid mask with a normalised frequency-radius threshold of 0.25, which avoids the ringing artefacts associated with hard binary cutoffs. The reconstructed spatial-domain components (obtained via inverse FFT) are then compared against their targets using L1 loss, with the high-frequency component weighted twice as strongly ($w_{HF}=2.0$, $w_{LF}=1.0$) to prioritise fine detail reconstruction.
+    
+        \subsubsection{Frequency Band Loss}
+    
+            Similarly to the frequency loss used in the residual frequency-based SR variant, a dedicated loss term was implemented for the direct frequency-based model. Instead of operating on signals separated through inverse FFT, this loss is applied directly to FFT magnitudes. Binary hard masks are used to separate low-frequency and high-frequency regions in the frequency domain (cutoff radius 0.25), with the high-frequency components weighted twice as strongly ($w_{HF}=2.0$, $w_{LF}=1.0$) to prioritize fine spatial detail reconstruction.
+    
+        \subsubsection{Adversarial Loss}
+    
+            The adversarial loss is used only in the GAN-based SR variant. It follows a least-squares GAN (LSGAN) formulation to improve training stability and uses a PatchGAN discriminator with a 70$\times$70 receptive field that classifies overlapping local image patches as real or generated, using spectral normalisation for further stability. A small regularization coefficient of 0.001 is applied to the adversarial term, so that the adversarial loss acts as a sharpness regulariser rather than the primary training objective, while fidelity losses (pixel, SAM, gradient, perceptual) remain dominant. This encourages the generator to produce sharper textures and more realistic high-frequency details in the super-resolved images.
+    
+    
+        \begin{table}[htbp]
+        \centering
+        \caption{Summary of the loss functions, and their mathematical definition, used for training the super-resolution models.}
+        \label{tab:loss_functions}
+        \small
+        \begin{tabular}{p{3cm} p{8.8cm}}
+        \toprule
+        \textbf{Loss} & \textbf{Definition} \\
+        \midrule
+    
+        Pixel-wise &
+        $\displaystyle
+        \mathcal{L}_{pixel} =
+        L1(pred,target) + 0.1\, MSE(pred,target)
+        $
+    
+        \\[7mm]
+    
+        SAM &
+        $\displaystyle
+        \mathcal{L}_{SAM} =
+        1 - \mathrm{mean}\!\left(
+        \frac{\langle pred, target \rangle}
+        {\|pred\|\,\|target\|}
+        \right)
+        $
+    
+        \\[7mm]
+    
+        Gradient &
+        $\displaystyle
+        \mathcal{L}_{grad} =
+        \frac{1}{C}
+        \sum_{c}
+        \left[
+        L1(S_x(pred_c), S_x(target_c)) +
+        L1(S_y(pred_c), S_y(target_c))
+        \right]
+        $
+        \newline
+        $S_x$, $S_y$: Sobel operators applied per channel. \\[7mm]
+    
+        Perceptual (VGG) &
+        $\displaystyle
+        \mathcal{L}_{perc} =
+        \sum_l w_l \,
+        L1\!\left(
+        VGG_l(2.5\,pred),
+        VGG_l(2.5\,target)
+        \right)
+        $
+        \newline
+        Layers $l$: relu1\_2, relu2\_2, relu3\_3 of VGG16. \\[7mm]
+    
+        Temporal Consistency &
+        $\displaystyle
+        \mathcal{L}_{temp} =
+        \mathrm{mean}_t
+        \left[
+        L1(\Delta pred_t, \Delta target_t)
+        \right]
+        $
+        \newline
+        $\Delta pred_t = pred_{t+1}-pred_t$. \\[7mm]
+    
+        Frequency (Residual) &
+        $\displaystyle
+        \mathcal{L}_{freq} =
+        1.0\,L1(LF_{pred},LF_{target})
+        +
+        2.0\,L1(HF_{pred},HF_{target})
+        $
+        \newline
+        $LF$, $HF$: spatial-domain components recovered via inverse FFT with a smooth sigmoid mask (threshold $r=0.25$). \\[7mm]
+    
+        Frequency Band (FFT) &
+        $\displaystyle
+        \mathcal{L}_{freq\_band} =
+        1.0\,L1(|FFT(pred)|\!\odot\!LF_{mask},
+        |FFT(target)|\!\odot\!LF_{mask})
+        $
+        \newline
+        $\displaystyle
+        \quad + 2.0\,L1(|FFT(pred)|\!\odot\!HF_{mask},
+        |FFT(target)|\!\odot\!HF_{mask})
+        $
+        \newline
+        $LF_{mask}$, $HF_{mask}$: binary hard masks with cutoff radius $r=0.25$. \\[7mm]
+    
+        Adversarial (LSGAN) &
+        $\displaystyle
+        \mathcal{L}_{adv_G} = MSE(D(pred),1)
+        $
+        \newline
+        $\displaystyle
+        \mathcal{L}_{adv_D} =
+        MSE(D(target),1)
+        +
+        MSE(D(pred),0)
+        $
+        \\
+    
+        \bottomrule
+        \end{tabular}
+        \end{table}
+
+    
+    \subsection{Up-scaler}\label{Upscaler}
+    
+        Due to the spatial resolution characteristics of the LR (77 $\times$ 77 px) and HR (256 $\times$ 256 px) samples, an up-scaling factor of 3.33 was required to generate the super-resolved images, resulting in a non-integer scaling problem. The attention-based SR architecture first applies a progressive up-scaling stage that increases the spatial resolution from (77 $\times$ 77 px) to (154 $\times$ 154 px). Subsequently, additional strategies were required to further up-scale the images to the final resolution of (256 $\times$ 256 px). To address this step, we evaluated three alternative approaches within the attention-based framework: (1) bilinear up-sampling, (2) a meta up-scaling module, and (3) an adaptive interpolation module.
+        
+        The bilinear interpolation approach takes the intermediate (154 $\times$ 154 px) outputs and applies standard bilinear interpolation to obtain the final resolution of (256 $\times$ 256 px). 
+        
+        The meta up-scaling method, inspired by the continuous image representation framework proposed by \citet{chen2021}, uses a deep learning architecture that learns implicit neural representations conditioned on local image features and sub-pixel spatial coordinates through positional encoders. Additional details of this architecture are provided in \citet{chen2021}.
+        
+        Finally, the adaptive interpolation method employs a three-layer CNN to predict per-pixel softmax weights over a $5 \times 5$ neighborhood, which are used to interpolate each output pixel. A parallel branch predicts small sub-pixel offsets for each kernel position, allowing the network to reach the most informative neighboring pixels. This mechanism is conceptually similar to deformable convolution, but applied to the up-sampling grid. A final residual refinement block is used to correct any remaining artifacts.
+    
+    
+    \subsection{Experimental design}\label{Experimental Design}
+
+        The experimental design evaluated three main factors and their interactions: 1) the temporal sequence construction strategy (Section~\ref{Temporal Sequence Construction}), 2) the SR modeling framework (attention-based, GAN-based, or frequency-based; Sections~\ref{Attention-based SR} and \ref{Frequency-based}), and 3) the prediction strategy (direct or residual). Each combination of temporal strategy and modeling framework was evaluated under both prediction strategies, yielding 14 model variants in total (Table~\ref{tab:LossComponents}). However, given the observed superiority of pure attention-based approaches under the first round of assessments, the GAN-based framework and frequency-based framework were evaluated using only the temporal-fused strategy and both prediction strategies to avoid an unmanageable number of combinations. In addition, the three up-scaling modules described in Section~\ref{Upscaler} were evaluated independently within the attention-based framework using the temporal-fused residual configuration as a common baseline.
+    
+        All models were trained using the AdamW optimizer with gradient clipping at a maximum $\ell_2$-norm of 1.0. The initial learning rate and weight decay were tuned individually per model variant. A scheduler with a reduction factor of 0.5 and patience of 4 epochs was applied throughout training. Each model was trained for up to 200 epochs with a batch size of 4, using early stopping with a patience of 20 epochs monitored on the validation loss. Training data augmentation was implemented using random horizontal and vertical flips and 90$^{\circ}$ rotations; all spatial transformations were applied consistently across the three temporal frames to preserve temporal coherence. All models were trained and evaluated on an NVIDIA GeForce RTX 4060 GPU using PyTorch.
+        
+        To assess the contribution of individual architectural components, an ablation study was conducted on the best-performing model variant using the following configurations: 1) full model, 2) removal of the spectral loss terms, 3) removal of the up-sampling strategy, and (4) simultaneous removal of both the temporal attention mechanism and the feature fusion module. Each ablation was evaluated under both direct and residual prediction strategies (see Section \ref{Ablation Study}).
+    
+        All proposed model variants were compared against a bilinear interpolation baseline as well as a set of state-of-the-art (SOTA) SR models evaluated using their respective pretrained weights without retraining: HAN \citep{niuHan2020}, LDM \citep{RombachLDM2022}, LDSR-S2 \citep{Donike_LDSR_S2_2025}, and SEN2SRLite \citep{AYBAR2026115222}.
+    
+        Model performance was assessed on the held-out 20\% test set described in Section~\ref{Methodology} using the metrics of performance described in section \ref{Evaluation}. Metrics were computed independently for the 10~m and 20~m resolution branches and then combined.
+        
+    \subsection{Evaluation}\label{Evaluation}
+
+        \subsubsection{Metrics of performance}
+
+            We evaluated the performance of the proposed SR algorithms and the baselines using the Peak Signal-to-Noise Ratio (PSNR), the Structural Similarity Index Measure (SSIM), the Spectral Correlation Coefficient (SCC), the Root Mean Squared Error (RMSE), the Relative Dimensionless Global Error in Synthesis (ERGAS), and the Spectral Information Divergence (SID). Together, these metrics provide an assessment of radiometric accuracy (higher PSNR and lower RMSE), structural consistency (higher SSIM), and spectral fidelity (higher SCC and lower ERGAS). Table \ref{tab:metrics} displays the formal definition equations of the evaluation metrics and the uncertainty quantification.
+        
+            \begin{table}[htbp]
+                \centering
+                \caption{Summary of the evaluation metrics and uncertainty quantification, and their mathematical definition, used for super-resolution assessment.}
+                \label{tab:metrics}
+                \small
+                \begin{tabular}{p{2.5cm} p{9.2cm}}
+                \toprule
+                \textbf{Metric} & \textbf{Definition} \\
+                \midrule
+                
+                PSNR &
+                $\displaystyle
+                \mathrm{PSNR} = 10 \log_{10} \left( \frac{L^2}{\mathrm{MSE}} \right)
+                $
+                \newline
+                $L$: maximum pixel value; MSE: mean squared error. \\[6mm]
+                
+                SSIM &
+                $\displaystyle
+                \mathrm{SSIM}(X,\hat{X}) =
+                \frac{(2\mu_X \mu_{\hat{X}} + C_1)(2\sigma_{X\hat{X}} + C_2)}
+                {(\mu_X^2 + \mu_{\hat{X}}^2 + C_1)(\sigma_X^2 + \sigma_{\hat{X}}^2 + C_2)}
+                $
+                \newline
+                $\mu$: local means; $\sigma^2$: variances; $\sigma_{X\hat{X}}$: covariance;
+                $C_1=(K_1L)^2$, $C_2=(K_2L)^2$. \\[6mm]
+                
+                SCC &
+                $\displaystyle
+                \mathrm{SCC} = \frac{1}{B} \sum_{b=1}^{B}
+                \frac{\sum_{i=1}^{N} (y_{i,b} - \bar{y}_b)(\hat{y}_{i,b} - \bar{\hat{y}}_b)}
+                {\sqrt{\sum_{i=1}^{N} (y_{i,b} - \bar{y}_b)^2}
+                \sqrt{\sum_{i=1}^{N} (\hat{y}_{i,b} - \bar{\hat{y}}_b)^2}}
+                $
+                \newline
+                Computed per band and averaged across $B$ bands. \\[6mm]
+                
+                RMSE &
+                $\displaystyle
+                \mathrm{RMSE} =
+                \sqrt{
+                \frac{1}{NB}
+                \sum_{b=1}^{B} \sum_{i=1}^{N}
+                (y_{i,b} - \hat{y}_{i,b})^2
+                }
+                $ \\[6mm]
+                
+                ERGAS &
+                $\displaystyle
+                \mathrm{ERGAS} =
+                100 \cdot \frac{h}{l}
+                \sqrt{
+                \frac{1}{B}
+                \sum_{b=1}^{B}
+                \left(
+                \frac{\mathrm{RMSE}_b}{\mu_b}
+                \right)^2
+                }
+                $
+                \newline
+                $h/l$: resolution ratio; $\mu_b$: mean of reference band $b$. \\[6mm]
+                
+                SID &
+                $\displaystyle
+                \mathrm{SID}(X,\hat{X}) =
+                \sum_{b=1}^{B}
+                p_b \log \left( \frac{p_b}{q_b} \right)
+                +
+                \sum_{b=1}^{B}
+                q_b \log \left( \frac{q_b}{p_b} \right)
+                $
+                \newline
+                $p_b=\frac{X_b}{\sum_k X_k}$,
+                $q_b=\frac{\hat{X}_b}{\sum_k \hat{X}_k}$. \\[6mm]
+                
+                NLL (Aleatoric Loss) &
+                $\displaystyle
+                \mathcal{L}_{NLL} =
+                \frac{1}{2}
+                \left[
+                \exp(-s)(y-\mu)^2 + s
+                \right]
+                $
+                \newline
+                $\mu$: predicted mean; $s=\log(\sigma^2)$ predicted log-variance. \\[6mm]
+                
+                Aleatoric Variance &
+                $\displaystyle
+                \sigma_{\text{alea}}^2 =
+                \frac{1}{M}
+                \sum_{m=1}^{M} \sigma_m^2
+                $ \\[6mm]
+                
+                Epistemic Variance &
+                $\displaystyle
+                \sigma_{\text{epi}}^2 =
+                \frac{1}{M}
+                \sum_{m=1}^{M}
+                (\mu_m - \bar{\mu})^2
+                $ \\[6mm]
+                
+                Total Predictive Variance &
+                $\displaystyle
+                \sigma_{\text{total}}^2 =
+                \sigma_{\text{alea}}^2 +
+                \sigma_{\text{epi}}^2
+                $ \\
+                
+                \bottomrule
+                \end{tabular}
+            \end{table}
+        
+            The six metrics jointly evaluate the SR output across three complementary axes: spatial fidelity (PSNR, SSIM), radiometric accuracy (RMSE), and spectral integrity (SCC, ERGAS, SID). This ensures that a model cannot score well by excelling on one dimension while degrading another, a known risk in satellite image SR where spatial sharpening can introduce spectral artifacts.
+
+    
+    
+        \subsubsection{Model Comparison against SOTA algorithms}
+        
+            We evaluated and compared the EMO-TSR model against SOTA SR algorithms, following the evaluation framework proposed by \citet{AYBAR2026115222}. We selected the following SOTA algorithms: 1) the Holistic Attention Network (HAN) \citep{niuHan2020}, 2) the Latent Diffusion Model (LDM) \citep{RombachLDM2022}, 3) the Latent Diffusion Super-Resolution model for Sentinel-2 (LDSR-S2) \citep{Donike_LDSR_S2_2025}, and 4) SEN2SRLite \citep{AYBAR2026115222}. Additionally, bilinear and bicubic interpolation were included as non-learned baselines. As noted by \citet{AYBAR2026115222}, HAN and LDM are general-purpose SR algorithms originally designed for natural images, while LDSR-S2 and SEN2SRLite are domain-specific models designed explicitly for super-resolving Sentinel-2 imagery.
+            
+            All SOTA models were evaluated using their original pretrained weights without any retraining on our dataset. This evaluation approach, which has been previously used \citep{AYBAR2026115222}, allows an assessment of model performance under real-world scenarios where downstream users prefer, or are limited to, pre-trained models due to the lack of new training data, computational resources, time or technical skills. HAN and LDM are single-image SR models that work with RGB input and produce ×4 up-scaled RGB output. LDSR-S2 and SEN2SRLite use as input (R, G, B, NIR) and produce four-channel output at ×4 up-scaling, where the NIR channel corresponds to B08 (842~nm, 10~m GSD). Since our dataset does not include B08, we used the Sentinel-2 B8A band (865~nm, 20~m GSD) and bi-linearly upsampled to 10~m as a proxy for B08. This is supported, for model comparison purposes, by the high spectral overlap between B08 (central wavelength 842~nm, bandwidth 145~nm) and B8A (central wavelength 865~nm, bandwidth 33~nm), with B8A falling entirely within B08's spectral response range (785-900~nm).
+            
+            Since all SOTA models operate at a native ×4 scale factor, the 77×77~pixel LR input produces a 308×308 output, which was then resized to the 256×256 ground truth spatial dimensions via bilinear interpolation for evaluation. SEN2SRLite requires a fixed 128×128 input size due to its internal Fourier mask, so the LR image was first resized from 77×77 to 128×128 before inference, with the 512×512 output subsequently resized to 256×256.
+            
+            For the 10~m branch evaluation, HAN and LDM were assessed on RGB only, as these models do not produce NIR output. LDSR-S2 and SEN2SRLite were evaluated on both RGB and NIR: the RGB channels were compared against the 10~m ground truth, while the super-resolved NIR channel was additionally evaluated against the B8A ground truth in the 20~m branch. For the 20~m branch, the Red Edge band (B5) was bi-linearly up-scaled for all SOTA models but not included in the metrics evaluation performance calculation.
+    
+    \subsection{Uncertainty quantification}\label{Uncertainty Quantification}
+
+        We quantified uncertainty using a heteroscedastic deep ensemble approach \citep{lakshminarayanan2017}. To assess epistemic uncertainty, we trained five instances of the best-performing SR model (i.e., the attention-based architecture with multi-output temporal sequence construction), each with a different random seed to control weight initialization and data shuffling order, while keeping the architecture and hyperparameters identical. The variance across ensemble member predictions at each pixel represents epistemic uncertainty. For aleatoric uncertainty, we made two modifications to the original architecture. First, we added a variance head module for each resolution output (10 m and 20 m) after the progressive up-scaler and refinement stages. Each variance head comprises two convolutional layers with GELU activations, predicting a per-pixel log-variance in addition to the mean prediction. Second, we replaced the primary L1 reconstruction loss with a Gaussian negative log-likelihood (NLL) loss. 
+        
+        A five-epoch warm-up strategy gradually transitions from L1 to NLL loss to stabilize early training. The auxiliary spectral angle, gradient, and temporal consistency losses remain applied to the mean prediction only. The total predictive uncertainty is the sum of the aleatoric uncertainty (mean of predicted variances across members) and the epistemic uncertainty (variance of predicted means across members).
+
+      
+\section{Results and Analysis}\label{Results}
+
+\begin{comment}
+    % \subsection{Analysis of Spectral and temporal Compatibility between Sentinel-2A and PlanetScope SuperDove Images}
+
+        % Spectral response function (SRF) differences between the two sensors and the band-matching rationale (the 5-band mapping: B2-B2, B4-B3, B6-B4, B7-B5, B8-B8A).
+    
+        % Temporal matching statistics:
+    
+        % Spectral harmonization results: histogram matching effectiveness 
+    
+        % Coregistration: AROSICS sub-pixel alignment, 100\% success rate
+        
+        % Establishing that the paired dataset is spectrally and temporally consistent enough for cross-sensor SR training
+    
+        % Scatter plot of reflectance values (Planet vs S2) per band before/after harmonization, or a temporal gap histogram showing the distribution of time delays between matched pairs.
+\end{comment}
+
+    \subsection{Model Performance Comparison}\label{Model Performance Comparison}
+        
+        Figure \ref{fig:Figure5_BestFrame} shows the absolute and relative improvements of the SR models compared to the bilinear interpolation baseline. We observe that six of the evaluated configurations outperform the bilinear baseline by $\geq 3$ dB ($\geq 10\%$) in PSNR, the most widely used metric in image super-resolution literature. All six correspond to attention-based temporal models operating under either the residual learning or the direct prediction configurations. This improvement is particularly relevant considering the models were trained and evaluated using real satellite imagery rather than synthetically degraded datasets, which often fail to capture the true characteristics of operational remote sensing data \citep{AYBAR2026115222}. This makes the approach scalable and reliable for operational use in aquatic vegetation monitoring.
+
+        \begin{figure}[]
+            \centering
+            \includegraphics[width=1\linewidth]{Figure_Metrics.png}
+            \caption{Comparison of model performance (six metrics) for multi-temporal satellite image super-resolution, including all the combination of model architectures and temporal sequence constructions. Each approach is evaluated under both direct prediction and residual learning. Results are presented as an absolute and relative (in parenthesis) improvement over the bilinear interpolation. Models are ranked from top (best) to bottom (worst) and color coded.}
+            \label{fig:Figure5_BestFrame}
+        \end{figure}
+        
+        A relevant technical finding is that the direct versions of the best-frame, median, and GAN architectures under-performed on the 10~m branch, yielding identical erroneous outputs (PSNR $\approx$ 23 dB, SSIM $\approx$ 0.08), while the 20~m branch performed well (PSNR $>$ 31 dB). On the other hand, the direct versions of the multi-output and META up-scaling configurations under-performed on the 20~m branch, with 10~m performance remaining comparable to their residual counterparts. This branch-specific failure pattern suggests that the Red edge and NIR 20~m bands present distinct learning challenges, and that direct prediction without the stabilizing effect of a bilinear interpolation for low frequency signal is more susceptible to optimization instabilities. Among these under-performing configurations, the META up-scaling strategy performed worst (PSNR of 25.88 dB, $-6.36$ dB below bilinear), indicating that this META up-scaling approach used to increase the resolution from $154 \times 154$ to $256 \times 256$ pixels introduced artifacts in the reconstructed images. 
+        
+        % The temporal model under residual learning also exhibited an erroneous performance on the 10~m branch (PSNR = 23.67 dB, SID = 14.98), making it the only architecture where the residual configuration failed while the direct version succeeded (+3.32 dB). This exception to the general pattern suggests that the temporal supervision of all $T$ frames may interfere with the residual learning pathway under certain conditions.
+
+        Other architectures showed additional limitations. The hybrid GAN-based SR model under residual learning produced improvements (+2.18 dB in PSNR) with improved spectral fidelity metrics (SID reduced from 0.065 to 0.046, SCC increased from 0.112 to 0.135); however, it under-performs the attention-based multi-output configurations. Similarly, the frequency-based SR approach showed limited ability to capture complex spatial–spectral relationships, as indicated by the PSNR improvement of only +0.77 dB under residual learning and a 34\% reduction in SCC. This suggests that the frequency decomposition strategy struggles to preserve spatial correlation structures. \citet{miao2025} found that the reconstruction quality of their frequency-based SR algorithm depends on factors such as the expansion size, regularization parameters, and convergence criteria. Further study and tuning of these components could improve the performance of the algorithm proposed in this study; however, this low adaptability issues represent a challenge to allow using it in downstream applications other than the one it was trained for. It also highlights the relevance of developing domain-specific SR algorithms and the need to continue expanding available benchmark datasets to test novel SR algorithms.
+        
+        For the attention-based SR model using the best-frame temporal sequence construction strategy, we observed positive weaker improvements (+2.33 dB) compared to the multi-output approach (+3.22 dB). This result confirms that discarding additional frames leads to the loss of temporal information that can help improve reconstruction quality.
+        
+        Among all evaluated configurations, the Enhanced Multi-Output Temporal SR algorithms (except the one with META up-scaling) consistently outperformed the bilinear baseline in both the direct prediction and residual learning settings. Even when using the regular bilinear up-scaling for the final super-resolution, the algorithm succeeded under both learning strategies (+3.23 dB residual, +3.58 dB direct). In contrast, the remaining model architectures surpassed bilinear interpolation only under the residual learning configuration, where the bilinear interpolation component stabilizes training by providing a low-frequency prior, with the notable exception of the temporal model discussed above.
+
+        \begin{figure}
+            \centering
+            \includegraphics[width=1\linewidth]{Figure_VisualComparisonLRHREMO.png}
+            \caption{Visual comparison of low-resolution (LR), high-resolution (HR), bilinear interpolation, and EMO-TSR super-resolved outputs. The zoomed area emphasizes the advantages of exploiting multi-temporal observations, highlighting how the proposed cross-attention and cross-resolution framework effectively integrates temporal information to mitigate cloud interference and improve spatial detail reconstruction in satellite image super-resolution (SR).}
+            \label{fig:visualcompLRHR}
+        \end{figure}
+
+        The best-performing configuration, an attention-based SR with Enhanced Multi-Output Temporal SR with Learned Up-scaling (EMO-TSR), achieved a PSNR improvement of +3.83 dB, an SSIM of 0.8970, and the lowest ERGAS value (6.56). These results indicate improvements in spatial reconstruction, structural similarity, and spectral–spatial consistency. The ERGAS reduction from 12.74 to 6.56 (a 48\% improvement) is particularly relevant for RS downstream applications, such as vegetation monitoring, because this metric measures spectral–spatial synthesis fidelity while normalizing errors by both the spatial resolution ratio and the mean radiance per band, making it dimensionless and comparable across sensors, regions, and spectral ranges \citep{Zhu_2026}. 
+        
+        Figures \ref{fig:visualcompLRHR} and \ref{fig:visualcompBiEmo} present a visual comparison of low-resolution (LR), high-resolution (HR), bilinear interpolation, and EMO-TSR super-resolved outputs. The zoomed area shows the advantages of exploiting multi-temporal observations, along with the cross-attention and cross-resolution framework to mitigate cloud interference and improve spatial detail reconstruction in satellite image SR. Section \ref{comparison between EMO-TSR and SOTA DL SR algorithms} further discusses these mechanisms and how they can lead to an improved quantitative performance by cross-sharing information between frameworks as well as to overcome atmospheric interference and bad quality pixels by re-conciliating multi-temporal information. 
+        
+        To the best of our knowledge, the combined attention and gated cross-resolution fusion mechanisms represent a novel approach to simultaneously use multi-temporal and multi-spectral information to improve the spatial and spectral fidelity of the super-resolved image. \citet{MICHEL2026115159} proposed a data fusion framework that follows an encoder–decoder scheme combining CNNs for spatial processing with a Transformer for temporal processing. Their solution is also built on attention mechanisms to fuse information across multiple acquisitions, and can handle different spatial resolutions and variable-length time series from different sensors. Their self-supervised approach (i.e., no real HR labels are used) offers maximal flexibility to fuse multi-sensor, multi-temporal, and multi-spectral RS imagery; however, in the absence of true HR ground-truth for the super-resolved bands, radiometric accuracy is enforced at the original LR resolution, while spatial detail enhancement relies on an indirect perceptual proxy derived from a different sensor's HR observations rather than from paired HR references. 
+        
+        Another important observation is the SSIM metric, which correlates with human perceptual quality and captures whether SR models preserve meaningful spatial structures or generate artificial features \citep{BAKUROV2022116087}. Consistent SSIM improvements were observed across all non-under-performing configurations, with the ten models that surpassed bilinear in PSNR also producing higher SSIM values. The strongest SSIM gains were observed for the EMO-TSR (0.897 residual, 0.896 direct), followed by the Enhanced Multi-Output Temporal SR with Bilinear configurations. In contrast, the under-performing direct prediction models produced near-zero SSIM values on their failed branch, confirming complete structural degradation of the models.
+        
+        The residual and direct versions of the best-performing SR model (i.e., EMO-TSR) produced very similar results (PSNR difference of only 0.15 dB, SSIM difference of 0.001). This suggests that the gains come from the model's ability to reconstruct high-frequency spatial details rather than from differences in the reconstruction strategy itself. Overall, these results indicate a joint effect from several architectural components of the proposed framework, including the attention-based architecture with gated cross-resolution fusion, the adaptive deep learning–based interpolation module that uses CNNs and deformable offsets to preserve local smoothness and boundary textures, and the spectral consistency module. This is further discussed in section \ref{Ablation Study}.
+        
+        Finally, these results highlight the importance of evaluating SR performance using multiple metrics. Individual metrics can be misleading when interpreted in isolation. For example, the under-performing direct prediction models exhibited artificially high SCC values (approaching 1.0 on their failed branch), which would suggest excellent spatial correlation if considered without the context of their degenerate PSNR and SSIM values. Among the non-under-performing models, the temporal direct configuration achieved the highest SCC (0.217); however, this result was not consistently the best across all other spectral fidelity metrics. A similar discrepancy was observed for the best-frame residual configuration (SCC = 0.174), where relatively high spatial correlation did not translate into proportional improvements in the remaining evaluation metrics.
+        
+        \begin{figure}
+            \centering
+            \includegraphics[width=1\linewidth]{Figure_VisualComparisonBiliEMo.png}
+            \caption{Visual comparison of bilinear interpolation and EMO-TSR super-resolved outputs. The accompanying color-coded map represents the mean absolute error (MAE) between the ground-truth high-resolution (HR) image and each super-resolved reconstruction, highlighting spatial discrepancies and demonstrating the improved reconstruction fidelity achieved by EMO-TSR.}
+            \label{fig:visualcompBiEmo}
+        \end{figure}
+        
+    \subsection{Comparison of Temporal Sequence Construction Approaches}\label{Comparison of Temporal Sequence Construction Approaches}
+    
+        Table \ref{tab:temporal_comparison} compares temporal modeling strategies for multi-temporal image super-resolution evaluated under both direct prediction and residual learning settings. The results show that the multi-output approach with enhanced encoder architecture consistently outperforms the temporal-fused and single-frame strategies (i.e., the median and best-frame approaches) across all non-under-performing configurations in both prediction paradigms. However, the plain multi-output model under-performing under direct prediction, highlighting the importance of this augmentation strategy for training stability.
+        
+        These results highlight the ability of the cross-attention mechanism to extract complementary information across temporal frames. By exploiting redundancy in short-term multi-temporal observations, the model can mitigate data quality issues such as atmospheric interference and corrupted pixels. In such cases, clearer observations provide complementary information that helps reconstruct spectrally consistent estimates for missing or degraded regions in other frames (see Figure \ref{fig:visualcompBiEmo}).
+        
+        The enhanced encoder architecture is essential for training stability in the multi-output SR model under direct prediction, where the plain multi-output configuration under-performed (PSNR of 26.31~dB, $-18.4\%$ below bilinear) while the augmented version converged successfully (PSNR of 35.81~dB, $+11.1\%$ above bilinear). Under residual learning, where the bilinear prior already stabilizes training, the effect of enhanced encoder architecture was negligible: the augmented and non-augmented multi-output models achieved nearly identical PSNR values (35.47 vs 35.45~dB), and the non-augmented version produced slightly better SSIM (0.891 vs 0.890) and SID (0.033 vs 0.043). These results suggest that enhanced encoder architecture primarily acts as a regularizer that prevents training collapse rather than providing consistent metric improvements across all settings.
+        
+        A comparison between direct and residual prediction strategies reveals that simpler temporal approaches (i.e., best-frame and median) perform better under residual learning. In these cases, the bi-linearly up-sampled input already provides a reasonable baseline, allowing the model to focus on reconstructing residual high-frequency details. In contrast, under direct prediction, where the task becomes more challenging, the model benefits from the additional information provided by multi-image inputs in the multi-output framework combined with the skip connections from the enhanced encoder architecture. This suggests that the cross-attention mechanism is effective in learning the full mapping from LR to HR imagery, provided that training is sufficiently stabilized.
+        
+        Notably, the temporal-fused approach achieved improved performance only in the direct prediction setting, where it produced a $+10.3\%$ increase in PSNR compared to the baseline. However, under residual learning the model failed to converge and produced significantly worse results, with a performance decrease of $13.7\%$ relative to the baseline. This makes the temporal-fused approach the only architecture where the residual configuration failed while the direct version succeeded, suggesting that the temporal supervision of all $T$ frames may interfere with the residual learning pathway.
+
+        \begin{table*}[htbp]
+            \centering
+            \caption{Comparison of temporal modeling strategies for multi-temporal satellite image super-resolution. Each approach is evaluated under both direct prediction and residual learning. Best result per metric within each block is shown in \textbf{bold}. Percentage change relative to the bilinear baseline is shown in parentheses.}
+            \label{tab:temporal_comparison}
+            \small
+            
+            \resizebox{\textwidth}{!}{%
+            \begin{tabular}{@{}ll ccccc@{}}
+            \toprule
+            \textbf{Temporal Approach} & \textbf{Description} & \textbf{PSNR\,} & \textbf{SSIM\,} & \textbf{RMSE\,} & \textbf{ERGAS\,} & \textbf{SID\,} \\
+            \midrule
+            \multicolumn{7}{c}{\textbf{Baseline}} \\
+            Bilinear interpolation &  & 32.23 & 0.8324 & 0.0494 & 12.74 & 0.06521 \\
+                
+            \midrule
+            \multicolumn{7}{c}{\textbf{Block~I  Direct prediction ($\hat{y} = f(\mathbf{x})$)}} \\
+            BestFrame$^\dagger$ & Single best-quality frame & 27.35\,{\scriptsize(\textminus15.1\%)} & 0.4720\,{\scriptsize(\textminus43.3\%)} & 0.0669\,{\scriptsize(\textminus35.4\%)} & 20.37\,{\scriptsize(\textminus59.9\%)} & 0.13187\,{\scriptsize(\textminus102.2\%)} \\
+            Median$^\dagger$ & Median composite across frames & 27.65\,{\scriptsize(\textminus14.2\%)} & 0.4798\,{\scriptsize(\textminus42.4\%)} & 0.0670\,{\scriptsize(\textminus35.6\%)} & 20.15\,{\scriptsize(\textminus58.2\%)} & 0.10613\,{\scriptsize(\textminus62.8\%)} \\
+            Temporal & Full 3-frame sequence + temporal attention & 35.56\,{\scriptsize(+10.3\%)} & 0.8939\,{\scriptsize(+7.4\%)} & 0.0282\,{\scriptsize(+42.9\%)} & 7.10\,{\scriptsize(+44.3\%)} & 0.03828\,{\scriptsize(+41.3\%)} \\
+            MultiOutput$^\dagger$ & Dual-resolution (10~m + 20~m) heads & 26.31\,{\scriptsize(\textminus18.4\%)} & 0.6807\,{\scriptsize(\textminus18.2\%)} & 0.1015\,{\scriptsize(\textminus105.5\%)} & 16.28\,{\scriptsize(\textminus27.8\%)} & 7.12063\,{\scriptsize()} \\
+            Enhanced Multi-Output & \quad+ skip connections & 35.81\,{\scriptsize(+11.1\%)} & 0.8952\,{\scriptsize(+7.5\%)} & 0.0259\,{\scriptsize(+47.6\%)} & 6.74\,{\scriptsize(+47.1\%)} & 0.03387\,{\scriptsize(+48.1\%)} \\
+            + Adaptive & \quad+ Adaptive learned up-scaling & \textbf{35.92}\,{\scriptsize(+11.4\%)} & \textbf{0.8959}\,{\scriptsize(+7.6\%)} & \textbf{0.0256}\,{\scriptsize(+48.2\%)} & \textbf{6.66}\,{\scriptsize(+47.7\%)} & \textbf{0.03274}\,{\scriptsize(+49.8\%)} \\
+            + Meta$^\dagger$ & \quad+ Meta-learning up-scaling & 25.88\,{\scriptsize(\textminus19.7\%)} & 0.4543\,{\scriptsize(\textminus45.4\%)} & 0.1137\,{\scriptsize(\textminus130.2\%)} & 20.52\,{\scriptsize(\textminus61.1\%)} & 0.16768\,{\scriptsize(\textminus157.1\%)} \\
+                
+            \midrule
+            \multicolumn{7}{c}{\textbf{Block~II  Residual learning ($\hat{y} = x_{\mathrm{up}} + f(\mathbf{x})$)}} \\
+            BestFrame & Single best-quality frame & 34.57\,{\scriptsize(+7.3\%)} & 0.8812\,{\scriptsize(+5.9\%)} & 0.0364\,{\scriptsize(+26.3\%)} & 7.79\,{\scriptsize(+38.9\%)} & 0.05025\,{\scriptsize(+22.9\%)} \\
+            Median & Median composite across frames & 33.78\,{\scriptsize(+4.8\%)} & 0.8671\,{\scriptsize(+4.2\%)} & 0.0432\,{\scriptsize(+12.6\%)} & 9.08\,{\scriptsize(+28.7\%)} & 0.06231\,{\scriptsize(+4.4\%)} \\
+            Temporal$^\dagger$ & Full 3-frame sequence + temporal attention & 27.83\,{\scriptsize(\textminus13.7\%)} & 0.5955\,{\scriptsize(\textminus28.5\%)} & 0.0610\,{\scriptsize(\textminus23.5\%)} & 17.81\,{\scriptsize(\textminus39.8\%)} & 7.49396\,{\scriptsize()} \\
+            MultiOutput & Dual-resolution (10~m + 20~m) heads & 35.45\,{\scriptsize(+10.0\%)} & 0.8913\,{\scriptsize(+7.1\%)} & 0.0266\,{\scriptsize(+46.2\%)} & 6.91\,{\scriptsize(+45.8\%)} & \textbf{0.03344}\,{\scriptsize(+48.7\%)} \\
+            Enhanced MultiOutput& \quad+ skip connections & 35.47\,{\scriptsize(+10.1\%)} & 0.8896\,{\scriptsize(+6.9\%)} & 0.0268\,{\scriptsize(+45.7\%)} & 6.95\,{\scriptsize(+45.4\%)} & 0.04326\,{\scriptsize(+33.7\%)} \\
+            + Adaptive & \quad+ Adaptive learned up-scaling & \textbf{36.07}\,{\scriptsize(+11.9\%)} & \textbf{0.8970}\,{\scriptsize(+7.8\%)} & \textbf{0.0252}\,{\scriptsize(+49.0\%)} & \textbf{6.56}\,{\scriptsize(+48.5\%)} & 0.03501\,{\scriptsize(+46.3\%)} \\
+
+            \bottomrule
+            \end{tabular}%
+            }
+            
+            \vspace{2pt}
+            {\footnotesize $^\dagger$\,Below bilinear baseline. \quad $^*$mean computed over converged models only.}
+        \end{table*}
+        
+    
+    \subsection{Model performance comparison between Enhanced Multi-Output Temporal SR with Learned Up-scaling (EMO-TSR) and SOTA DL SR algorithms}\label{comparison between EMO-TSR and SOTA DL SR algorithms}
+
+        \subsubsection{Architectural comparison}
+
+            The enhanced Multi-Output Temporal SR with Learned Up-scaling (EMO-TSR), processes T=3 temporal frames of dual-resolution satellite imagery (Planet 10~m RGB and Sentinel-2 20~m bands) and produces super-resolved outputs for both resolution branches simultaneously. Here we present an architectural comparison between our proposed EMO-TSR model and state-of-the-art SR methods. Methods are organized into four categories: CNN-based, GAN-based, Transformer-based, and satellite multi-frame specific methods. The comparison was made across six dimensions; namely, feature extraction, attention mechanism, up-sampling strategy, loss functions, temporal and multi-frame handling, and multi-resolution output characteristics.
+    
+            In terms of feature extraction, EMO-TSR uses a dual-resolution encoder with separate branches for 10 m and 20 m Sentinel-2 bands, each composed of a 7×7 convolutional stem followed by four residual blocks with 64 base channels and CBAM (Convolutional Block Attention Module) applied at alternating blocks. This dual-resolution encoder is not present in any of the SOTA models, representing an innovation and granting SR algorithms the capacity to inherently handle multi-resolution bands. HighRes-net \citep{deudon2020highresnetrecursivefusionmultiframe} uses a shared temporal fusion encoder that allows it to merge same-resolution frames over time; however, EMO-TSR's dual encoder allows downstream applications not only to process multi-frame inputs but also to build representations from bands at different native spatial resolutions. This feature advances the SR field for satellite imagery considering Sentinel-2 has varying spatial resolutions across its bands and it is commonly used as the LR source as it offers radiometrically consistent medium-resolution open-source imagery at a global scale.
+            
+            Other unique features of the proposed EMO-TSR are the temporal cross-attention mechanism and the gated cross-resolution fusion. The temporal cross-attention module is the core of the temporal fusion block and creates a dual path for global and local temporal information sharing. The global path applies scaled dot-product attention over spatial frames, producing a frame-level attention matrix that captures inter-frame relevance. The local path concatenates all temporal frames along the channel dimension and applies a convolution to produce a spatially-varying local (i.e., at the pixel level) mixture. Per-frame outputs are then computed as a gated interpolation between each frame's own features and the local mixture. The gated cross-resolution fusion mechanism then creates a per-channel, spatially-varying, bidirectional information exchange between 10 m and 20 m feature maps. The 20 m bands provide additional spectral information for the 10 m bands, while the 10 m bands help inform the 20 m bands with additional textural information. EMO-TSR uses a spectral consistency channel attention module to preserve spectral coherence that can be distorted from multi-spectral band information sharing. This module applies adaptive average pooling followed by two 1×1 convolutions with a GELU activation and a sigmoid gate, recalibrating channel responses to maintain inter-band spectral coherence. EMO-TSR shares a Squeeze-and-Excitation (SE) channel attention strategy with other SOTA models such as RCAN and RAMS, which is useful to let the SR model focus on detailed information in the image. This can be associated to the observed capacity of both the direct prediction and residual learning versions of the EMO-TSR to learn high frequency features.
+    
+            One major limitation to train satellite SR algorithms with real datasets is the up-scaling factor that exists between LR and HR images. For instance, the up-scaling factor between Sentinel-2 and PlanetScope is 3.33× for both the 10 m bands (10 m to 3 m GSD) and the 20 m bands (20 m to 6 m GSD). This non-integer up-scaling factor, which also exists with other HR image providers (e.g., WorldView), limits the applicability of the PixelShuffle up-scaling mechanism that is used by almost every DL-based SR algorithm. In EMO-TSR we use a progressive hybrid approach that combines PixelShuffle (2×) with Adaptive Interpolation. First, PixelShuffle doubles the spatial resolution, followed by a 3×3 output convolution. Then, the Adaptive Interpolation module which is a deformable 5 x 5 kernel with learned offsets, resizes the intermediate features to the exact target size. This allows the SR model to handle non-integer up-scaling factors while preventing over-smoothing of high-frequency regions that is common in traditional non-DL SR methods \citep{Zhang2022223}. While the former advantage is essentially irrelevant for non-satellite applications, for satellite imagery SR, preserving geometric fidelity and pixel information is essential for many downstream applications such as spectral indices calculation and change detection. Other satellite SR applications still choose to use larger integer up-scaling factors and then center-crop to the desired size. This strategy introduces edge artifacts at crop boundaries whose relevance depends on the end application. Some limitations of this approach include the larger computational cost (compared to only using PixelShuffle) of the adaptive interpolation, which cannot be parallelized due to the per-pixel offset computation, and the memory overhead when used with large input patches.
+            
+            Finally, one major incorporation used in the development of EMO-TSR is the compound domain-specific loss. Most SOTA SR methods only use single or few loss components; for instance, EDSR, RCAN, HAT, SRFormer, DAT, and MambaIR all use only L1 loss, while HighRes-net and RAMS similarly employ only L1. A few SR models such as ESRGAN \citep{wang2018esrganenhancedsuperresolutiongenerative} and its variants use a compound loss term combining L1, VGG perceptual, and adversarial losses; however, none incorporates spectral angle or temporal consistency terms in their training routine. EMO-TSR employs a four-component compound loss: (1) L1 pixel reconstruction loss ($\alpha$ =1.0), (2) Spectral Angle Mapper (SAM) loss ($\alpha$=0.137) computed as the mean arccos of the normalized cosine similarity across spectral bands, (3) local gradient loss ($\alpha$=0.01) using Sobel-filtered edge maps to preserve spatial detail, and (4) temporal consistency loss ($\alpha$=0.5) that penalizes differences in temporal change patterns between predicted and target sequences. Incorporating multiple loss terms beyond L1 has been studied and proven to be beneficial, considering that there is a non-unique LR–HR mapping path that is overlooked by the L1 loss term alone \citep{he2023revisitingl1losssuperresolution}. The SAM and temporal consistency terms are particularly novel contributions: the SAM loss explicitly preserves inter-band spectral relationships critical for remote sensing applications such as vegetation index computation, while the temporal consistency loss encourages coherent predictions across the T=3 frame sequence, a constraint absent from all single-image SOTA methods.
+
+        \subsubsection{Comparison of model performance: EMO-TSR vs SOTA DL SR Algorithms}
+        
+            Table \ref{tab:sota_comparison} and Figure~\ref{fig:sota_visual_comparison} show a quantitative and visual comparison of model performance for the proposed EMO-TSR model against SOTA SR algorithms. From here we can see that EMO-TSR outperforms SOTA models across both branches. The EMO-TSR Residual variant achieves the highest PSNR (38.23\,dB on 10\,m, 33.88\,dB on 20\,m), representing a +2.41\,dB improvement over the best-performing SOTA SR model (SEN2SRLite, 35.82\,dB) on the 10\,m branch, and a +5.30\,dB improvement on the 20\,m branch. SSIM follows a similar trend, with EMO-TSR Residual reaching 0.8977 and 0.8959 on the 10\,m and 20\,m branches, respectively, compared to 0.8570 and 0.8070 for SEN2SRLite. The ERGAS metric decreases from 13.40 (SEN2SRLite) to 8.72 (MO-TSR Residual) on the 10\,m branch (a 34.9\% reduction) and from 12.14 to 4.42 on the 20\,m branch (a 63.6\% reduction).
+            
+            Both HAN and LDM under-perform below bilinear interpolation on distortion metrics. HAN achieves 31.20\,dB PSNR on 10\,m (vs.\ 35.86\,dB for bilinear), a 4.66\,dB degradation, while LDM reaches 31.59\,dB. This highlights the relevance of developing domain-specific SR algorithms for satellite imagery rather than using models trained on non-RS imagery. Natural image SR models are optimized for perceptual quality in RGB scenes with textures, edges, and semantic content that differ fundamentally from the spectral reflectance patterns, atmospheric effects, and sub-pixel mixing characteristic of satellite data. 
+            LDM is also a generative model that introduces stochastic variations that degrade pixel-level fidelity metrics, as evidenced by its particularly low SCC (0.0253) indicating poor spatial correlation with the ground truth.
+
+            \begin{table*}[htbp]
+                \centering
+                \caption{Quantitative comparison of EMO-TSR against SOTA SR algorithms. The 10\,m branch evaluates Blue, Green, and Red bands (and additionally NIR for LDSR-S2 and SEN2SRLite); the 20\,m branch evaluates Red Edge (B5) and NIR narrow (B8A). Best values are in \textbf{bold}. Percentage change relative to the bilinear baseline is shown in parentheses. \,higher is better; \,lower is better.}
+                \label{tab:sota_comparison}
+                \small
+            
+                \resizebox{\textwidth}{!}{%
+                \begin{tabular}{@{}l cccccc@{}}
+                \toprule
+                \textbf{Model} & \textbf{PSNR\,} & \textbf{SSIM\,} & \textbf{SCC\,} & \textbf{RMSE\,} & \textbf{ERGAS\,} & \textbf{SID\,} \\
+                \midrule
+            
+                \multicolumn{7}{c}{\textbf{Baseline}} \\
+                Bilinear (10 m) & 35.86 & 0.8574 & 0.0986 & 0.0422 & 13.38 & 0.0686 \\
+                Bilinear (20 m) & 28.58 & 0.8071 & 0.1259 & 0.0568 & 12.14 & 0.0615 \\
+                Bilinear (Combined) & 32.22 & 0.8323 & 0.1123 & 0.0495 & 12.76 & 0.0651 \\
+            
+                \midrule
+                \multicolumn{7}{c}{\textbf{10\,m branch  Blue, Green, Red}} \\
+                Bicubic & 35.64\,{\scriptsize(\textminus0.6\%)} & 0.8555\,{\scriptsize(\textminus0.2\%)} & 0.1237\,{\scriptsize(+25.5\%)} & 0.0425\,{\scriptsize(\textminus0.7\%)} & 13.55\,{\scriptsize(\textminus1.3\%)} & 0.0753\,{\scriptsize(\textminus9.8\%)} \\
+                HAN & 31.20\,{\scriptsize(\textminus13.0\%)} & 0.8166\,{\scriptsize(\textminus4.8\%)} & 0.0747\,{\scriptsize(\textminus24.2\%)} & 0.0480\,{\scriptsize(\textminus13.7\%)} & 17.09\,{\scriptsize(\textminus27.7\%)} & 0.2762\,{\scriptsize(\textminus302.6\%)} \\
+                LDM & 31.59\,{\scriptsize(\textminus11.9\%)} & 0.8055\,{\scriptsize(\textminus6.1\%)} & 0.0253\,{\scriptsize(\textminus74.3\%)} & 0.0491\,{\scriptsize(\textminus16.4\%)} & 18.31\,{\scriptsize(\textminus36.8\%)} & 0.1057\,{\scriptsize(\textminus54.1\%)} \\
+                LDSR-S2 & 34.77\,{\scriptsize(\textminus3.0\%)} & 0.8446\,{\scriptsize(\textminus1.5\%)} & 0.0462\,{\scriptsize(\textminus53.1\%)} & 0.0434\,{\scriptsize(\textminus2.8\%)} & 14.13\,{\scriptsize(\textminus5.6\%)} & 0.0805\,{\scriptsize(\textminus17.3\%)} \\
+                SEN2SRLite & 35.82\,{\scriptsize(\textminus0.1\%)} & 0.8570\,{\scriptsize(0.0\%)} & 0.0833\,{\scriptsize(\textminus15.5\%)} & 0.0422\,{\scriptsize(0.0\%)} & 13.40\,{\scriptsize(\textminus0.1\%)} & 0.0657\,{\scriptsize(+4.2\%)} \\
+                EMO-TSR (Direct) & 38.04\,{\scriptsize(+6.1\%)} & 0.8974\,{\scriptsize(+4.7\%)} & 0.1345\,{\scriptsize(+36.4\%)} & 0.0260\,{\scriptsize(+38.4\%)} & 8.86\,{\scriptsize(+33.8\%)} & \textbf{0.0543}\,{\scriptsize(+20.8\%)} \\
+                EMO-TSR (Residual) & \textbf{38.23}\,{\scriptsize(+6.6\%)} & \textbf{0.8977}\,{\scriptsize(+4.7\%)} & \textbf{0.1433}\,{\scriptsize(+45.3\%)} & \textbf{0.0255}\,{\scriptsize(+39.6\%)} & \textbf{8.72}\,{\scriptsize(+34.8\%)} & 0.0577\,{\scriptsize(+15.9\%)} \\
+            
+                \midrule
+                \multicolumn{7}{c}{\textbf{20\,m branch  Red Edge (B5), NIR narrow (B8A)}} \\
+                Bicubic & 28.47\,{\scriptsize(\textminus0.4\%)} & 0.8041\,{\scriptsize(\textminus0.4\%)} & 0.1667\,{\scriptsize(+32.4\%)} & 0.0575\,{\scriptsize(\textminus1.2\%)} & 12.28\,{\scriptsize(\textminus1.2\%)} & 0.0866\,{\scriptsize(\textminus40.8\%)} \\
+                HAN$^\dagger$ & 28.58\,{\scriptsize(0.0\%)} & 0.8071\,{\scriptsize(0.0\%)} & 0.1259\,{\scriptsize(0.0\%)} & 0.0568\,{\scriptsize(0.0\%)} & 12.14\,{\scriptsize(0.0\%)} & 0.0615\,{\scriptsize(0.0\%)} \\
+                LDM$^\dagger$ & 28.58\,{\scriptsize(0.0\%)} & 0.8071\,{\scriptsize(0.0\%)} & 0.1259\,{\scriptsize(0.0\%)} & 0.0568\,{\scriptsize(0.0\%)} & 12.14\,{\scriptsize(0.0\%)} & 0.0615\,{\scriptsize(0.0\%)} \\
+                LDSR-S2 & 28.56\,{\scriptsize(\textminus0.1\%)} & 0.8055\,{\scriptsize(\textminus0.2\%)} & 0.0999\,{\scriptsize(\textminus20.7\%)} & 0.0569\,{\scriptsize(\textminus0.2\%)} & 12.15\,{\scriptsize(\textminus0.1\%)} & 0.0660\,{\scriptsize(\textminus7.3\%)} \\
+                SEN2SRLite & 28.58\,{\scriptsize(0.0\%)} & 0.8070\,{\scriptsize(0.0\%)} & 0.1249\,{\scriptsize(\textminus0.8\%)} & 0.0568\,{\scriptsize(0.0\%)} & 12.14\,{\scriptsize(0.0\%)} & 0.0481\,{\scriptsize(+21.8\%)} \\
+                EMO-TSR (Direct) & 33.77\,{\scriptsize(+18.2\%)} & 0.8940\,{\scriptsize(+10.8\%)} & 0.2293\,{\scriptsize(+82.1\%)} & 0.0253\,{\scriptsize(+55.5\%)} & 4.46\,{\scriptsize(+63.3\%)} & \textbf{0.0113}\,{\scriptsize(+81.6\%)} \\
+                EMO-TSR (Residual) & \textbf{33.88}\,{\scriptsize(+18.5\%)} & \textbf{0.8959}\,{\scriptsize(+11.0\%)} & \textbf{0.2497}\,{\scriptsize(+98.3\%)} & \textbf{0.0248}\,{\scriptsize(+56.3\%)} & \textbf{4.42}\,{\scriptsize(+63.6\%)} & 0.0125\,{\scriptsize(+79.7\%)} \\
+            
+                \bottomrule
+                \end{tabular}%
+                }
+
+            \end{table*}
+            
+            We also observe that the domain-specific models (SEN2SRLite and LDSR-S2) outperform general-purpose models but do not outperform the baseline models. SEN2SRLite nearly matches bilinear interpolation on PSNR (35.82 vs.\ 35.86\,dB) and SSIM (0.8570 vs.\ 0.8574), while achieving the lowest SID (0.0657) among SOTA models on the 10\,m branch, indicating better spectral fidelity. LDSR-S2's performance is slightly below SEN2SRLite, achieving 34.77\,dB PSNR. This might be due to its diffusion-based architecture introducing stochastic perturbations similar to LDM, though its domain-specific training on Sentinel-2 data mitigates this effect considerably compared to LDM.
+            
+            The largest performance difference appears on the 20\,m branch, where EMO-TSR achieves a +5.30\,dB PSNR improvement over all SOTA models. This could be associated to EMO-TSR's native multi-output design; however, we used a bi-linearly upsampled 10~m B8A from Sentinel-2 as a proxy of the B8, which is expected for these models. Despite the high spectral overlap between these two bands, the spectral differences and bilinear up-sampling may have introduced artifacts and partially decreased model performance. Although the analysis and proposed framework and model are scalable to other LR-HR sensors characteristics, the work presented here was tailored to Sentinel-2 and PlanetScope sensor characteristics.
+
+            \begin{figure}
+                \centering
+                \includegraphics[width=1\linewidth]{Figure_SOTA_Comp.png}
+                \caption{Visual comparison of the proposed EMO-TSR super-resolution (SR) models (direct and residual configurations) against state-of-the-art (SOTA) methods. The reported peak signal-to-noise ratio (PSNR) values demonstrate the ability of the proposed approach to outperform both general-purpose (e.g., HAN, LDM) and domain-specific SR models.}
+                \label{fig:sota_visual_comparison}
+            \end{figure}
+            
+            The LDSR-S2 NIR output on the 20\,m branch (PSNR 28.56\,dB) is marginally worse than bilinear (28.58\,dB), suggesting that its diffusion process may introduce artifacts that degrade per-pixel accuracy even for the NIR band. SEN2SRLite shows a similar performance to bilinear on PSNR but achieves a notable improvement on SID (0.0481 vs.\ 0.0615), indicating that its CNN-based NIR output preserves spectral information better despite similar spatial accuracy. In contrast, EMO-TSR's temporal multi-frame fusion and task-specific loss functions enable both B5 and B8A to benefit from information complementarity across the spectral branches, yielding significantly higher reconstruction quality.
+
+        
+    
+    \subsection{Ablation Study}\label{Ablation Study}
+    
+        The ablation study evaluates the contribution of each architectural component by sequentially removing it from the full model configuration and measuring the resulting change on metrics on the test set ($n = 1{,}367$ samples). As detailed before, the full best performing model comprises five unique components that are evaluated: (1)~an enhanced encoder with per-block skip connections, (2)~adaptive interpolation for non-integer up-scaling, (3)~an SE-style spectral consistency module, (4)~a compound loss including the Spectral Angle Mapper (SAM) term, and (5)~a temporal cross-attention mechanism with gated cross-resolution fusion.  Performance differences are reported as differences between the ablated and the reference full models. Table~\ref{tab:ablation} summarizes the combined metrics for all ablation variants.
+    
+        \begin{table}[htbp]
+            \centering
+            \caption{Ablation study results. Each variant is compared against its paradigm's full model:
+            residual ablations ($\mathcal{R}$) against Full Residual, direct ablations ($\mathcal{D}$) against Full Direct.
+            Deltas show the change from the respective reference (better PSNR/SSIM are positive; better ERGAS/RMSE/SID are negative).
+            \textsuperscript{\dag} denotes under-performing 20\,m branch (PSNR $<$ 20\,dB).}
+            \label{tab:ablation}
+            \resizebox{\textwidth}{!}{%
+            \begin{tabular}{llcrcrcrcrcr}
+            \toprule
+            \textbf{Ablation} & \textbf{Para.}
+              & \textbf{PSNR} & $\Delta$
+              & \textbf{SSIM} & $\Delta$
+              & \textbf{ERGAS} & $\Delta$
+              & \textbf{RMSE} & $\Delta$
+              & \textbf{SID} & $\Delta$ \\
+            \midrule
+            Full Model (ref.)              & $\mathcal{R}$ & 36.07 &    & 0.897 &      & 6.56  &    & 0.0252 &      & 0.035 &      \\
+            Full Model (ref.)              & $\mathcal{D}$ & 35.92 &    & 0.896 &      & 6.66  &    & 0.0256 &      & 0.033 &      \\
+            \midrule
+            \multicolumn{12}{l}{\textit{Upsampling strategy}} \\
+            \quad AdaptiveInterp           & $\mathcal{R}$ & 35.47 & $-$0.60 & 0.890 & $-$0.007 & 6.95 & +0.39 & 0.0268 & +0.002 & 0.043 & +0.008 \\
+            \quad AdaptiveInterp           & $\mathcal{D}$ & 35.81 & $-$0.11 & 0.895 & $-$0.001 & 6.74 & +0.09 & 0.0259 & +0.000 & 0.034 & +0.001 \\
+            \quad Encoder+AdaptiveInterp   & $\mathcal{R}$ & 35.45 & $-$0.61 & 0.891 & $-$0.006 & 6.91 & +0.35 & 0.0266 & +0.001 & 0.033 & $-$0.002 \\
+            \quad Encoder+AdaptiveInterp\textsuperscript{\dag} & $\mathcal{D}$ & 26.31 & $-$9.61 & 0.681 & $-$0.215 & 16.28 & +9.63 & 0.1015 & +0.076 & 7.121 & +7.088 \\
+            \midrule
+            \multicolumn{12}{l}{\textit{Spectral loss components}} \\
+            \quad No SAM Loss              & $\mathcal{R}$ & 36.49 & +0.42 & 0.903 & +0.006 & 6.34 & $-$0.22 & 0.0243 & $-$0.001 & 0.047 & +0.012 \\
+            \quad No SAM Loss              & $\mathcal{D}$ & 36.15 & +0.23 & 0.899 & +0.004 & 6.57 & $-$0.08 & 0.0253 & $-$0.000 & 0.039 & +0.007 \\
+            \quad No SE Module             & $\mathcal{R}$ & 36.61 & +0.54 & 0.904 & +0.007 & 6.28 & $-$0.28 & 0.0239 & $-$0.001 & 0.033 & $-$0.002 \\
+            \quad No SE Module\textsuperscript{\dag} & $\mathcal{D}$ & 26.32 & $-$9.60 & 0.457 & $-$0.439 & 20.25 & +13.59 & 0.1131 & +0.088 & 0.167 & +0.134 \\
+            \quad No SE + No SAM           & $\mathcal{R}$ & 36.32 & +0.25 & 0.900 & +0.003 & 6.48 & $-$0.08 & 0.0248 & $-$0.000 & 0.050 & +0.015 \\
+            \midrule
+            \multicolumn{12}{l}{\textit{Temporal attention \& fusion}} \\
+            \quad No Temporal+Fusion       & $\mathcal{R}$ & 34.72 & $-$1.34 & 0.873 & $-$0.024 & 7.64 & +1.08 & 0.0301 & +0.005 & 0.037 & +0.002 \\
+            \quad No Temporal+Fusion       & $\mathcal{D}$ & 35.40 & $-$0.51 & 0.879 & $-$0.017 & 7.14 & +0.48 & 0.0280 & +0.002 & 0.035 & +0.002 \\
+            \bottomrule
+            \end{tabular}%
+            }
+        \end{table}
+    
+    
+        % ------------------------------------------------------------------
+        \subsubsection{Ablated adaptive interpolation}
+        % ------------------------------------------------------------------
+    
+            Replacing the content-aware adaptive interpolation module with bilinear up-scaling produced consistent degradations across all metrics. In the residual inference, combined PSNR decreased from 36.07\,dB to 35.47\,dB with corresponding degradations in SSIM (-0.007), RMSE (+0.0016), ERGAS (+0.39), and SID (+0.008). The degradation was even larger in the 20~m branch (-0.79 dB) than the 10~m branch (-0.41 dB), indicating that the adaptive interpolation is particularly beneficial for the 20~m bands up-sampling, where the non integer scaling factor (2$\times$ PixelShuffle followed by 1.667$\times$ adaptive resize) introduces more artifacts when handled by fixed bilinear interpolation.
+    
+            In the direct prediction configuration, the ablated variant achieved 35.81\,dB ( -0.11 dB compared to the Full direct reference), with small but consistent degradations in SSIM (-0.001), RMSE (+0.0008), and ERGAS (+0.09). Both branches maintained performance (37.94\,dB for 10~m, 33.68\,dB for 20~m), indicating that the enhanced encoder with its per-block skip connections is sufficient to prevent 20~m branch collapse in the direct prediction when adaptive interpolation is the only component removed.
+    
+            The decrease in magnitude of degradation in the direct variant (-0.11 compared to -0.60 dB) may reflect that when the model is tasked to make full mapping rather than just learning to map the high frequency information (i.e., without the additive bilinear prior), the direct model's baseline accuracy is slightly lower, limiting the margin within which the adaptive kernel up-scaling can provide refinement.  In contrast, the residual model begins from a stronger bilinear-anchored output, allowing the adaptive interpolation focusing on learning to map high frequency information.
+
+        % ------------------------------------------------------------------
+        \subsubsection{Ablated enhanced encoder architecture and adaptive interpolation}
+        % ------------------------------------------------------------------
+    
+            Replacing the enhanced encoder with the original architecture (replacing per-block skip connections with a flat sequential encoder, substituting the 7$\times7$ network branch with a 3$\times$3 depthwise separable convolution, removing the output projection, and replacing the SE-style spectral gating with an additive residual convolution) while simultaneously removing the adaptive interpolation module produced prediction-type dependent effects.
+    
+            In the residual learning case, combined PSNR decreased from 36.07\,dB to 35.45\,dB (-0.61 dB, -1.7 \%), with corresponding drops in SSIM ($-0.006$), RMSE ($+0.0014$), and ERGAS ($+0.35$). The degradation magnitude was similar in both branches: for the 10~m branch PSNR decreased by $-0.62$ dB (to 37.64 dB) and for the 20~m branch by -0.61 dB (to 33.27\,dB). This suggests that the combined encoder enhancement and adaptive interpolation contribute a uniform per-branch improvement when the model is tasked with residual learning.
+    
+            Notably, this compound ablation ($-0.61$\,dB) produced almost the same combined degradation as removing adaptive interpolation alone ($-0.60$\,dB), implying that the encoder enhancement provides little additional benefit once the adaptive up-sampler is already removed. The enhanced encoder's architecture is therefore more valuable when coupled with the learned up-sampler that can draw on richer feature representations.
+    
+            In the direct prediction configuration, the ablated model experienced larger degradation. While for the 10~m branch performance degradation was little (-1.18 dB compared to the Full Residual), the 20~m branch under-performed to 15.54 dB. All other combined metrics degraded correspondingly: SSIM dropped to 0.681, ERGAS increased to 16.28, and SID to 7.12. This differential behavior between branches (i.e., 10 vs. 20~m bands) indicates that the flat encoder, which lacks per-block residual connections and the wider receptive field of the $7\times7$ stem, is unable to sustain gradient flow to the smaller-resolution branch when the model is tasked to learn the full mapping of LR to HR. Thus, the 20~m branch appears particularly vulnerable to training divergence when both architectural support (enhanced encoder) and the bilinear baseline (residual learning) are simultaneously absent.
+    
+    
+        % ------------------------------------------------------------------
+        \subsubsection{Ablated SAM loss only}
+        % ------------------------------------------------------------------
+    
+            Removing the Spectral Angle Mapper loss term (i.e., $\alpha_{\text{spectral}} = 0.137$ to 0.0) while maintaining the full architecture, including the SE-style spectral consistency module, produced an unexpected result: pixel-level quality metrics improved in both learning approaches.
+    
+            In the residual learning case, the combined PSNR increased from 36.07\,dB to 36.49\,dB (+0.42 dB), with consistent improvements in SSIM (+0.006), RMSE (-0.0009), and ERGAS (-0.22). The improvement was larger in the 20~m branch (+0.57 dB, SSIM +0.009) than in the 10~m branch (+0.27 dB, SSIM +0.003). However, the SID metric, which directly evaluates spectral divergence, increase from 0.035 to 0.047, with the 20~m branch SID nearly doubling from 0.012 to 0.021. This suggests that the SAM loss improves inter-band spectral fidelity at the cost of per-pixel reconstruction accuracy.
+    
+            In the direct prediction case, the pattern was slightly attenuated with a combined PSNR increasing marginally to 36.15\,dB (+0.23), SSIM improved by +0.004, and SID increased to 0.039. Both branches maintained performance (38.14\,dB for 10~m, 34.16\,dB for 20~m), indicating that the absence of the SAM loss affected training stability when the remainder of the architecture is intact.
+    
+            The trade-off between pixel-level and spectral fidelity may be due to having the SAM loss term penalizing deviations in the angular direction of the multi-band reflectance vector, which constrains the optimization away from the minimum of the L1 and gradient loss terms. Removing this angular constraint allows the network to more freely minimize pixel error, but at the expense of distorting relative spectral responses across bands. For downstream applications that rely on spectral ratios (e.g.\ NDVI, NDWI), the SAM-inclusive configuration might be suggested despite its lower PSNR. (references needed)
+    
+        % ------------------------------------------------------------------
+        \subsubsection{Ablated SE-Spectral Consistency module}
+        % ------------------------------------------------------------------
+    
+            Replacing the SE-style spectral consistency module with an identity
+            mapping while retaining the SAM loss ($\alpha_{\text{spectral}} = 0.137$) produced
+            the largest improvement in pixel-level metrics among all ablation variants in the residual setting, and simultaneously revealed a critical stability role for the module in the direct prediction approach.
+    
+            In the residual learning approach, combined PSNR increased from 36.07 dB to 36.61 dB (+0.54 dB), which is the highest among the ablated models. SSIM improved to 0.904 (+0.007), RMSE decreased to 0.024, and ERGAS improved to 6.28. The improvement was particularly pronounced in the 20~m branch (+0.83 dB, SSIM +0.011). In contrast to the SAM loss ablation, SID also slightly improved to 0.033, indicating that the SE module does not contribute positively to spectral fidelity as measured by this metric.
+    
+            In the direct prediction approach, removing the SE module caused a pronounced decrease of model performance in the 20~m branch with PSNR decreasing to 14.52 dB (SSIM = 0.015), which is similar to observed decrease in model performance with the flat encoder ablation. On the other hand, the 10~m branch performance remained close to the no-ablated model (38.12 dB).
+            
+            The observed asymmetric effect of removing the SE-spectral consistency module suggests a dual role for the SE module. In residual learning, it may act as a regularizer constraining the solution space at the cost of pixel accuracy. In direct prediction, it provides a gradient-stabilizing information bottleneck that prevents the 20~m branch from diverging during training. The adaptive average pooling $\to$ $1\times1$ conv $\to$
+            sigmoid gating of the SE module creates a global channel-attention map that re-scales features; for the 20~m branch, which encodes the same geographic area as the 10~m branch but with only $39\times39$ pixels (compared to $77\times77$), this global context may be essential to maintain coherent gradients when the loss is accumulated over a much smaller feature map without a bilinear output prior. (references needed)
+    
+    
+        % ------------------------------------------------------------------
+        \subsubsection{Ablated SE-Spectral Consistency module and SAM loss}
+        % ------------------------------------------------------------------
+    
+            Removing both the SE module and the SAM loss simultaneously eliminates all
+            spectral-supervision signals from the training pipeline. This variant was trained only in the residual configuration.
+    
+            Combined PSNR increased to 36.32\,dB (+0.25 dB), with consistent improvements in SSIM (+0.003), RMSE (-0.0004), and ERGAS (-0.08). Both branches performance improved, for the 10~m branch it increased to 38.37 dB (+0.12 dB), and for the 20~m branch it did to 34.27\,dB (+0.39 dB). However, SID worsened to 0.050, with the 20~m branch SID increasing from 0.012 to 0.029.
+    
+            A key finding is the sub-additive interaction between these two components. Removing the SE module alone improved PSNR by +0.54 dB; removing the SAM loss alone improved PSNR by 0.42 dB; yet removing both yielded only +0.25 dB which is less than either individual ablation. This sub-additivity suggests that each component partially compensates for the absence of the other. Without the SE module, the network relies more heavily on the SAM loss gradient to maintain inter-band coherence, and vice versa. Removing both eliminates these complementary regularization effects, forcing the network to rely solely on L1, gradient, and temporal losses, which still improve PSNR over the doubly-constrained
+            baseline but by a smaller margin than removing either constraint individually.
+    
+            The strongest SID degradation ($+42\,\%$ vs.\ $-5\,\%$ for SE only or $+35\,\%$ for SAM only) further supports this hypothesis that spectral fidelity is affected more when neither module is present. These results indicate that for applications requiring spectral accuracy, at least one of the two spectral mechanisms should be retained, being the SAM loss preferred to be maintained as it provides larger spectral benefit with a smaller PSNR cost. (references needed)
+    
+        % ------------------------------------------------------------------
+        \subsubsection{Ablated temporal cross-attention and cross-resolution fusion}
+        % ------------------------------------------------------------------
+    
+            Replacing the temporal cross-attention mechanism with per-frame independent convolutions and completely removing the gated cross-resolution fusion step produced the largest
+            degradation of any single-component ablation, confirming the temporal-and-fusion pathway as the most critical architectural contribution.
+            
+            In the residual configuration, combined PSNR decreased from 36.07 dB to 34.72 dB (-1.35 dB), the largest single-component drop observed. Similarly, SSIM dropped to 0.873 (-0.024), RMSE increased by +0.005, and ERGAS worsened to 7.64. The degradation was more pronounced in the 20~m branch (-1.76 dB, SSIM -0.031) than the 10~m branch (-0.93 dB, SSIM -0.016), consistent with the hypothesis that cross-resolution fusion disproportionately benefits the lower-resolution branch by providing textural information from the 10~m features.
+            
+            In the direct prediction case, the ablated model achieved 35.40\,dB (-0.67 dB), with both branches maintaining a relatively good performance (37.71 dB for 10~m and 33.10 dB for 20~m). This represents a substantially smaller degradation than in the residual case (-0.67 vs. -1.35 dB).
+    
+            The direct model without temporal attention (35.40 dB) outperformed the residual model without temporal attention (34.72 dB) by +0.68 dB, which represents a reversal of the ranking observed in the full configuration. This suggests that having the a bilinear interpolation to learn mapping of low frequency features in residual learning can become a disadvantage when the temporal attention mechanism is absent. The additive shortcut encourages the network to produce small residual corrections, limiting its capacity to independently reconstruct fine detail from per-frame features alone (references needed). The direct prediction case, lacking the bilinear prediction of low frequency features, is forced to build stronger per-frame encoder representations, which partially compensate for the lost inter-frame information sharing (references needed).
+    
+            The 20~m branch experienced the most pronounced degradation in both paradigms, consistent with the design of the cross-resolution fusion gate. In this architecture, the 20~m pathway draws on rich textural priors from the $2.56\times$ higher-resolution 10~m features; removing this information channel forces the decoder to reconstruct 20~m content exclusively from its own $39\times39$ feature map.
+        
+    % \subsection{Temporal and spatial evaluations of the down-scaled images}
+
+        % What to report here:
+
+        % Spatial analysis: Visual comparison of SR outputs vs HR reference for representative tiles (edge sharpness, small feature preservation, vegetation boundary definition)
+        % Temporal consistency: How stable are SR predictions across the 3-frame sequences? Report temporal PSNR variance or frame-to-frame consistency metrics
+        % Per-band analysis: Break down PSNR/SSIM by band (Blue, Green, Red at 10~m vs RedEdge, NIR at 20~m). Your data already shows 10~m bands (38.26 dB) are easier to super-resolve than 20~m bands (33.88 dB), discuss why (20~m has ×6.67 scale factor vs ×3.33 for 10~m)
+        % Spatial error maps: Where does the model succeed vs fail? Expect higher errors at vegetation-water boundaries, mixed pixels, and shadow edges
+        % Seasonal/temporal variation: Does model performance vary across the 5-year period? (2020–2024)
+
+    \subsection{Evaluation of model uncertainty}\label{Evaluation of model uncertainty}
+
+        Figure \ref{fig:Uncertainty10m} summarizes the results of the uncertainty analysis obtained for the prediction of the 10~m bands (RGB). Figure \ref{fig:Uncertainty10m}-\textbf{a} displays the model's predicted uncertainty (on the y-axis) versus the actual RMSE (on the x-axis) built with 1360 test samples from the ensemble of five model-training instances with random seeding. We observe the deep ensemble achieves a Pearson correlation of 0.915 between predicted uncertainty and reconstruction error for the 10~m bands, demonstrating that the model provides highly reliable confidence estimates. Figure \ref{fig:Uncertainty10m}-\textbf{b} displays a per-sample contribution decomposition of the aleatoric and the epistemic decomposition. This shows that around 93\% of the observed model uncertainty is aleatoric and 6.3\% corresponds to epistemic uncertainty, suggesting the irreducible noise from the input images (e.g., sensor noise, atmospheric conditions, roads crossing the areas of interest) dominates the uncertainty of the model. This is also confirmed on the uncertainty decomposition bar plot in Figure \ref{fig:Uncertainty10m}-\textbf{e}. The epistemic uncertainty of the model being only about 6.3\%, suggest there was little margin to further improve the model performance by adding more or better training data. Additionally, together these results suggest model training convergence. 
+        
+        Figure \ref{fig:Uncertainty10m}-\textbf{c} shows the calibration-reliability curve. Calibration analysis shows the model is slightly overconfident for narrow confidence intervals but conservative for wider intervals (observed in the s-shaped curve), consistent with a heavier-tailed error distribution than the assumed Gaussian. Figure \ref{fig:Uncertainty10m}-\textbf{d} shows the sparsification plot which represents the evolution of PSNR as the most uncertain samples are progressively removed. Sparsification analysis yields an AUSE of 0.26 dB for 10~m bands, indicating near-optimal uncertainty ranking. Removing the 50\% most uncertain predictions improves mean PSNR by +6.57 dB, demonstrating residual potential for additional downstream quality control on the input samples. Finally, Figure \ref{fig:Uncertainty10m}-\textbf{f} shows the histogram of per-sample PSNR distribution. We observe a median (40.65 dB) notably higher than the mean, suggesting a small number of samples bring down the average performance of the ensemble model.
+
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\linewidth]{Figure_Uncertainty_10m.png}
+            \caption{Deep ensemble uncertainty analysis for our proposed EMO-TSR model, performed on the 10~m generated bands. A total of 1360 test samples are shown. Panel shows a scattered plot with the error and uncertainty per sample. Panel b maps the contribution of the aleatoric and epistemic uncertainty per sample and their distribution across the 1:1 relation (diagonal line). Panel c shows the calibration-reliability plot between the observed and expected coverage. Panel d shows a sparsification plot that reflects the gain in PSNR as a function of the percentage of uncertain samples removed. Panel e shows a bar-chart decomposition of the average aleatoric and epistemic uncertainty. Panel f shows a histogram distribution of PSNR values and its statistical descriptors.}
+            \label{fig:Uncertainty10m}
+        \end{figure}
+        
+        Similarly, Figure \ref{fig:Uncertainty20m} summarizes the results of the uncertainty analysis obtained for the prediction of the 20~m bands (NIR, Red-edge). From Figure \ref{fig:Uncertainty20m}-\textbf{a} we observe a Pearson correlation coefficient of 0.706, which is lower than the coefficient for the 10~m bands. We kept the scaling factor constant (i.e., all bands were super resolved by a factor of 3.33, leaving super resolved 20~m bands with a resolution of 6 m) to maintain task consistency and enable cross comparisons. Considering NIR and red-edge are less sensitive to atmospheric interactions (e.g., Rayleigh scattering) than RGB bands, these results suggest that either the model's architecture is less suited to handle their spectral-radiometric and information complexity characteristics, or that the task itself is more complex than super resolving RGB bands. We can observe from Figure \ref{fig:Uncertainty20m}-\textbf{b} and \textbf{e} that the epistemic (reducible) uncertainty of the model (24.6\%) is higher than for the 10~m bands (6.7\%). This supports the idea that additional training data or architectural modifications may be helpful to produce more reliable confidence estimates. Yet, a value of 75.4\% in aleatoric uncertainty is still indicative of model convergence. 
+        
+        Regarding model calibration analysis (Figure \ref{fig:Uncertainty20m}-\textbf{c}) we observe an s-shaped curve, similar to the 10~m bands, suggesting the model is slightly overconfident for narrow confidence intervals but conservative for wider intervals. The sparsification analysis (Figure \ref{fig:Uncertainty20m}-\textbf{d}) yields an AUSE of 0.751 dB for 20~m bands, with a gain over random of 2.69 dB, which is a more uncertain yet reliable prediction. Removing the 50\% most uncertain predictions improves mean PSNR by +3.01 dB. These results are aligned with the higher epistemic uncertainty described before, which suggest there is potential to improve model performance not only by removing uncertain sample but also by modifying the model's architecture. Finally, from Figure \ref{fig:Uncertainty20m}-\textbf{f} we observe a median (34.96 dB), which is marginally higher than the mean (33.83 dB) and a tighter and more symmetric distribution. Unlike the 10~m bands, we do not observe hard samples bringing down the model performance, instead we see a consistently lower model performance for most model samples.
+        
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\linewidth]{Figure_Uncertainty_20m.png}
+            \caption{Deep ensemble uncertainty analysis for our proposed EMO-TSR model, performed on the 20~m generated bands. A total of 1360 test samples are shown. Panel shows a scattered plot with the error and uncertainty per sample. Panel b maps the contribution of the aleatoric and epistemic uncertainty per sample and their distribution across the 1:1 relation (diagonal line). Panel c shows the calibration-reliability plot between the observed and expected coverage. Panel d shows a sparsification plot that reflects the gain in PSNR as a function of the percentage of uncertain samples removed. Panel e shows a bar-chart decomposition of the average aleatoric and epistemic uncertainty. Panel f shows a histogram distribution of PSNR values and its statistical descriptors.}
+            \label{fig:Uncertainty20m}
+        \end{figure}\
+
+        Figure \ref{fig:Uncertaintysamp} displays 4 instances of low-, medium-, and high-uncertainty input patches. We observe that low-uncertainty samples are homogeneous, cloud-free, well-registered, which is expected. However, what is interesting to note from these images is that several high-uncertainty zones actually correspond to road-sections that border the aquatic vegetation communities. These samples are responsible for the heavily right-skewed distributions observed before.  
+
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\linewidth]{Figure_LMH_Uncertainty.png}
+            \caption{Analysis of low-, medium-, and high-uncertainty samples.}
+            \label{fig:Uncertaintysamp}
+        \end{figure}
+
+
+
+\section{Discussion}
+
+    Here we present EMO-TSR, a domain-specific (i.e., aquatic vegetation monitoring) SR framework to generate spectrally validated 3~m (RGB) and 6~m (NIR, red-edge) images from real-world Sentinel-2 inputs. The model addresses the spectral consistency gap inherent in general-purpose SOTA SR approaches, which are designed for visual quality in natural images and pay little attention to spectral fidelity. The model is also among the few SR algorithms trained on real-world data rather than synthetically degraded samples. An ablation study on the best-performing model revealed the most relevant mechanisms leading to the superior performance of the proposed algorithm. This includes a dual branch architecture to handle multiple bands resolution, a temporal cross-attention and the gated cross-resolution mechanisms to allow bi-directional information sharing between bands and between temporal frames, an adaptive learning up-scaling mechanism working along a PixelShuffle module to allow non-integer up-scaling factors, and a compound domain-specific loss that lets the algorithm prioritize spectral fidelity along with spatial and radiometric consistency.
+
+    We demonstrate the relevance of training domain-specific SR algorithms for RS downstream applications. Natural-image SR optimizes perceptual quality in 8-bit RGB scenes whose texture statistics (human faces, architecture, natural scenes) differ fundamentally from multispectral reflectance patterns, sub-pixel mixing, and atmospheric noise \citep{shokoohi2026,vasu2018}. Multispectral and hyperspectral SR must be designed to preserve reflectance, sub‑pixel composition, spectra over bands \citep{Brodu2016Super-Resolving,Borsoi2018Super-Resolution}. The very low SCC values and qualitative artifacts described for LDM and HAN on satellite SR corroborate that general‑purpose generative SR tends to hallucinate and distort radiometry unless explicitly constrained by sensor‑aware, radiometrically consistent objectives and evaluation metrics \citep{Korkmaz2024Training,Ren2025Hallucination}. For aquatic vegetation purposes this represent a major limitation to the use of RS as a mean to track spatiotemporal dynamics of different species (and phenological stages) with satellite-based systems.
+
+    Feeding multi-temporal frames (3 frames captured from the same area within a month) and having a temporal cross-attention and a gated cross-resolution mechanism allowing bi-directional information flow between bands and frames, proved to be successful and led not only to superior spatial, spectral, and radiometric performance, but also to exploit the information redundancy across multiple frames to overcome atmospheric interference as seen in Figure~\ref{fig:visualcompLRHR}. Multi-image remote sensing SR increasingly uses temporal attention and cross-scale/band fusion to exploit redundancy and handle atmospheric/noise effects. \citet{Liu2025Research} demonstrated that ablating the Residual Temporal Attention Blocks (RTAB) from their SR model, reduced the sharpness reconstruction of the image. \citet{Salvetti2020Multi-image} uses 3D convolutions plus feature/temporal attention and residual paths to let low‑frequency redundancy flow while focusing on high‑frequency details, improving cPSNR to 48.51 dB (NIR) and 50.44 dB (RED). However, this cross-attention's global and local dual pathway is a novel architecture feature. TAMRF-SITS is the only to have the temporal-attention feature as it uses a full Transformer self-attention module. However, it operates pixel-wise with O(N²) complexity in sequence length \citep{MICHEL2026115159}, while EMO-TSR's pooled global attention followed by local convolutional mixing achieves a more memory-efficient but spatially-aware temporal fusion.
+    
+    The independent analysis of the 10~m and 20~m branches shows an asymmetric performance of the 20~m branch. In direct prediction, where no bilinear prior was present for low-frequency signals, the coarser pixel grid present in the 20~m branch ($39\times39$ vs. $77\times77$ for 10~m) reduced the loss gradient accumulation surface and amplified optimization instabilities, causing the model to underperform. The cross-resolution fusion gate mechanism proved to be beneficial to counter this issue as it transfers rich 2.56× higher-resolution textural information from 10~m features to the 20~m decoder. When removed in the ablated model, it forced the 20~m decoder to reconstruct content exclusively from its compressed feature map, causing the performance to drop. The SE module's global average pooling acted as well as a stabilizer by providing global channel context to the 20~m branch. These findings suggest that lower-resolution SR branches benefit from cross-band information sharing. This is particularly relevant since for downstream wetland monitoring, the 20~m bands (Red Edge, NIR) are the most ecologically informative bands for vegetation indices (NDVI, NDRE).
+
+    Downstream RS applications of SR algorithms require physically meaningful band relationships to be preserved. This incorporates a trade-off between radiometric and inter-band spectral accuracy in the optimization of the loss term. In our study we found that the additive interaction between SAM and SE provide overlapping but complementary regularization. Without the SE module, the model relies more on SAM gradients for inter-band coherence, and vice versa. Our results suggest that for downstream applications that compute spectral indices such as NDVI, NDRE, or water-quality indices from SR outputs, the SAM loss should be retained despite its PSNR cost, to preserve spectral fidelity. This is consistent with previous research \citep{Yi2019Spectral}. For visual inspection or land-cover classification tasks, the SAM-free configuration may be preferable as gains in radiometric accuracy are more relevant.
+
+    We found that despite the unique and significant advantages of DL-based SR approaches, full DL-predictions are not necessarily the best approach. Letting the DL-networks focusing on high-frequency information restoration while using a baseline bilinear up-scaling model for low-frequency information can yield superior results; however, the choice of the best prediction strategy (i.e., direct vs residual) depends on the model architecture since strong priors or degradation models can over-smooth fine details or constrain high-capacity architectures \citep{Liang2016Incorporating}. The bilinear prior in residual learning provides a reasonable starting output, stabilizing training for architecturally simpler models, however, it can become a constraint for architecturally complete models. We also found that EMO-TSR converged under both prediction approaches. This suggests that the full proposed architecture ensemble (enhanced encoder + SE module + adaptive interpolation) provides sufficient regularization to substitute the implicit stabilization provided by the bilinear prior. Thus, EMO-TSR can be used in either mode depending on the use case. Residual learning for marginally better metrics and direct when the bilinear prior introduces undesirable smoothing for fine-grained vegetation boundaries.
+
+    SOTA SR algorithms trained on RS (Sentinel-2) imagery demonstrate an improvement with respect to general-purpose models; however, their performance still remains below application needs. LDSR-S2 and SEN2SRLite, two SR algorithms trained on Sentinel-2, underperformed our EMO-TSR when used with the released pre-trained weights. Despite their improvements and specific architecture to work with Sentinel-2 imagery, these diffusion- and GAN-based SR models trade deterministic reflectance recovery for realistic textures and modeled uncertainty, requiring pixel‑wise uncertainty maps \citep{Donike2025Trustworthy} for downstream use and adding noise and artifacts that limit interpretability. This result justifies the development or training of task-specific SR algorithms. In addition, many synthetically degraded datasets do not capture real sensor-specific effects such as cross-sensor spectral response function (SRF) differences, atmospheric residuals after L2A correction, sub-pixel registration noise, temporal phenological variation within the matching window, and mixed pixels at vegetation-water boundaries \citep{Dong2022Real-world,Malczewska2023CHALLENGES}. 
+    
+    The ±7-day temporal tolerance allowed us to maximize matching LR-HR pairs at the cost of having an approximate ground truth image. Non-zero temporal windows strategies have been previously used in RS to maximize data coverage while maintaining sufficient accuracy \citep{Schroder2024Exploring,Liu2025Concerns}. We found this approximation to remain valid for the inspected aquatic vegetation species characteristic of the STAs, and useful to maximize data availability under real-world scenarios conditions where RS data availability is limited during certain seasons. The cross-temporal information sharing and the temporal consistency checks added to EMO-TSR architecture helped limiting the degradation of performance due to this approximation. Further study of this capacity should be verified in future studies with different input data characteristics.
+
+    Non-integer scale factors are a satellite SR challenge given the diverse range of native resolutions from different constellations. The proposed adaptive interpolation's per-pixel 5×5 softmax weights with deformable offsets provides content-aware interpolation that avoids the over-smoothing of bilinear while being more constrained than meta-learning. Kernel‑aware or content‑adaptive modules predict local kernels or weights per pixel to avoid over‑smoothing while remaining more constrained than fully meta‑learned up-samplers \citep{Dong2022Real-world,Singh2020Content}. This architectural solution can be used in place of current strategies that rely only on PixelShuffle, bilinear/bicubic interpolation, or image resize, increasing the flexibility of supervised SR training pipelines and multi sensor integrations.
+
+    We implemented a heteroscedastic deep ensemble routine with five replications to study the uncertainty of the proposed model. Heteroscedastic deep ensemble uncertainty analyses have been used in SR \citep{Iagaru2023Uncertainty}, proving to be useful routines to identify epistemic uncertainty sources, optimize model architectures, and to perform quality-control on the samples. The dominant aleatoric uncertainty (sensor noise, atmospheric variability, non-vegetation features such as roads) on the 10~m branch suggest model convergence, meaning that limited improvements might be gained from further training or adding more training data. However, the 20~m branch epistemic component (24.6\%) indicates there is additional learning capacity that is not fully exploited by the current architecture or data volume. Targeted architectural improvements for the 20~m decoder (e.g., deeper residual blocks or a larger cross-resolution gate) could improve 20~m predictions. On the other hand, the sparsification results (+6.57 dB with 50\% removal) provide a quality-control mechanism, suggesting operational monitoring capacity and the possibility to flag unreliable SR predictions. High-uncertainty zones mainly corresponded to road sections and cloud presence, which are non-vegetation features that affect metrics but not final monitoring applications.
+
+    Besides EMO-TSR's proven capacity to outperform SOTA and baseline up-scaling algorithms to generate 3~m and 6~m images, our model has the potential to be used for transfer learning SR pipelines. Transfer learning has been successfully used for RS SR since pretraining on generic or large RS datasets and fine-tune on small, task-specific sets, improving both stability and performance \citep{Dong2019Transferred}. Several design choices favor transferability. For instance, the dual-branch encoder fits Sentinel-2's multi-resolution band structure, which is constant globally \citep{Salvetti2020Multi-image}, and the temporal cross-attention handles variable temporal dynamics \citep{Salvetti2020Multi-image}. The limited model size (1.57~M parameters) facilitates fine-tuning on small domain-specific datasets \citep{Xiao2023EDiffSR:}. The compound loss can be re-weighted for new applications (e.g., increasing SAM weight for spectral-critical tasks, removing temporal consistency for single-frame deployment). With these features the model could used for transfer-learning to super-resolve higher resolution imagery (e.g., Worldview) that is not massively available that would otherwise limit SR models training. Differences in spectral characteristics with other constellations might require architectural adaptations \citep{Zhang2022Single-Image}. Further studies are needed to confirm minimum data volume training needs and model performance under different input data characteristics.
+
+    % The six-metric evaluation protocol used here (PSNR, SSIM, SCC, RMSE, ERGAS, SID) ensures that improvements in certain characteristics do not lead to unseen degradation in another, which is essential for satellite SR where spatial sharpening can introduce spectral artifacts.
+    
+    % Future studies should focus on the interaction between prediction strategy and spatial footprint should be explicitly considered in future models. 
+
+\section{Conclusions}\label{Conclusions}
+
+In this study, we developed EMO-TSR, a domain- and task-specific SR algorithm that jointly processes Sentinel-2 bands at 10~m and 20~m native resolution through dual-branch encoding with gated cross-resolution fusion, temporal cross-attention over sequences of three frames, and content-aware adaptive up-sampling for non-integer scale factors. EMO-TSR achieves state-of-the-art performance on real-world satellite SR, outperforming both general-purpose and domain-specific SR algorithms under a zero-shot evaluation. The temporal cross-attention and cross-resolution mechanisms were identified as the most critical architectural components to achieve this performance. The multi-frame ($T=3$) acquisition strategy and the temporal cross-attention mechanism allowed EMO-TSR to exploit the information redundancy across images captured within a period of generally non-significant spectral and spatial changes in the observed aquatic vegetation communities. This redundancy was used to refine the spectral, radiometric, and spatial fidelity of the reconstructed images and to attenuate partial atmospheric interference present in individual frames. The cross-resolution mechanism enabled bi-directional information flow between the 10~m and 20~m branches, allowing rich spatial features from the higher-resolution branch to inform the reconstruction of 20~m bands, and rich spectral features from the 20~m branch to inform the reconstruction of 10~m bands. EMO-TSR demonstrates the potential of domain-specific SR algorithms to generate spatially and spectrally consistent imagery; however, it also demonstrates that domain-specific performance is conditioned on the tailoring of the model architecture and data preparation process to the characteristics of the monitored system and the available input data. These results highlight the interplay between fundamental deep learning concepts and technical remote sensing knowledge, and position EMO-TSR as a contribution to both the technical development and evaluation of SR algorithms and their use in downstream applications, particularly aquatic vegetation monitoring in constructed wetlands.
+
+Among the technical contributions from this work, we found that the SR reconstruction of coarser-resolution bands (e.g., the 20~m B5 and B8A bands) is a substantially more difficult task than reconstructing 10~m bands, and one that can largely benefit from cross-resolution fusion mechanisms. This finding is broadly relevant given the diverse range of spatial characteristics across satellite constellations, and suggests that the proposed mechanism can be incorporated into previously developed and new SR algorithms operating on multi-resolution sensors. Similarly, multi-output temporal strategies proved to be a promising framework for SR algorithms used in downstream monitoring applications, provided that data availability is sufficient to build sequences within the minimum time window over which no significant changes in the physical and spectral characteristics of the monitored system occur. The inclusion of spectral loss terms such as the SAM loss has become a popular strategy to explicitly condition SR algorithms to trade PSNR gains for spectral fidelity; however, our ablation study demonstrates that its inclusion should be application-dependent, as it consistently improved SID while degrading pixel-level metrics. For applications relying on spectral indices such as NDVI and NDRE, retaining the SAM loss is recommended despite its PSNR cost. Adaptive interpolation with content-aware per-pixel weights and deformable offsets provides a viable solution to the non-integer scale factor problem that commonly limits SR algorithms across multi-sensor applications, and can be incorporated in place of fixed bilinear or bicubic strategies in existing training pipelines. The use of real-world paired LR–HR satellite data from matched Sentinel-2 and PlanetScope acquisitions enabled model training under conditions that synthetically degraded datasets cannot replicate, capturing cross-sensor SRF differences, sub-pixel registration noise, atmospheric residuals, and mixed pixels at vegetation–water boundaries.
+
+The heteroscedastic deep ensemble uncertainty analysis provided additional insight into the convergence behavior of the proposed architecture. For the 10~m branch, the dominant aleatoric uncertainty (93\%) indicates that the observed prediction error is largely attributable to irreducible variability in the input data (e.g., sensor noise, atmospheric conditions, non-vegetation features such as roads), and that little additional performance gain is expected from further training or expanded data volume. For the 20~m branch, the relatively higher epistemic uncertainty component (24.6\%) suggests there is residual learning capacity that is not fully exploited under the current architecture and data volume, consistent with the lower reconstruction accuracy observed for these bands. The sparsification analysis, showing a PSNR gain of +6.57 dB upon removal of the 50\% most uncertain predictions for the 10~m branch, demonstrates the operational potential of uncertainty estimates as a quality-control mechanism to flag unreliable SR predictions, an important capability for downstream monitoring applications where sample reliability is critical.
+
+Regarding the choice of prediction paradigm, residual learning yielded marginally superior quantitative metrics; however, the full EMO-TSR architectural ensemble (enhanced encoder, SE-style spectral consistency module, adaptive interpolation, and compound loss) provides sufficient regularization to support stable convergence under direct prediction as well, making residual learning a non-mandatory design choice. The model can therefore be deployed in either mode depending on the use case: residual learning for marginally better aggregate metrics, and direct prediction when the bilinear prior would otherwise impose undesirable spatial smoothing in fine-grained vegetation boundary reconstruction.
+
+These results establish EMO-TSR as a dual contribution to the SR and remote sensing communities. On the technical side, the proposed architecture introduces mechanisms—gated cross-resolution fusion, pooled temporal cross-attention, and adaptive non-integer up-sampling—that address unresolved challenges in multi-resolution multispectral SR and whose modularity facilitates integration into existing frameworks. On the downstream application side, the model provides a pathway toward generating frequent, spectrally validated 3~m and 6~m imagery from freely available Sentinel-2 data, enabling the spatiotemporal mapping of aquatic vegetation dynamics in constructed wetland systems at a spatial detail and temporal frequency that would otherwise require cost-prohibitive very-high-resolution imagery. The architecture's limited parameter count (1.57~M), its design around Sentinel-2's fixed multi-resolution band structure, and its compound loss re-weighting capacity suggest broad transferability via fine-tuning to other sensors and regions. Future studies should investigate transfer learning to other satellite constellations with different spectral characteristics, frequency-domain architectural adaptations for satellite-specific spatial statistics, and per-band and seasonal performance evaluation to characterize model behavior under varying phenological and atmospheric conditions—aspects that remain as acknowledged limitations of the present work.
+
+\section{Acknowledgments}
+
+This work was supported by the Science and Technologies for Phosphorus Sustainability (STEPS) Center, a National Science Foundation Science and Technology Center (CBET-2019435). PlanetScope imagery was provided through Planet's Education and Research Program.
+
+\section{Data Availability}
+
+Sentinel-2 Level~2A imagery is freely available from the Copernicus Open Access Hub and was accessed through the Google Earth Engine API. PlanetScope SuperDove imagery was obtained through Planet's Education and Research Program and is subject to the program's license terms, which restrict redistribution of raw or minimally processed data; interested researchers may apply for access through Planet's Education and Research Program (\url{https://www.planet.com/markets/education-and-research/}). The preprocessing, co-registration, and temporal matching code used to build the paired dataset from these sources is publicly available at \url{https://colab.research.google.com/drive/1lph6r4xiinsSpOT98PCLdRg2JrL3e2Lb?usp=sharing}. A metadata file listing the Sentinel-2 scene identifiers, PlanetScope scene identifiers, acquisition dates, spatial tile coordinates, co-registration offsets, and quality-control statistics for all 6{,}813 patch pairs, along with the trained EMO-TSR model weights, will be released upon publication at [repository URL to be added].
+
+
+\section{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
+
+During the preparation of this work, the author(s) used Claude Opus 4.6 to proofread and improve the readability of the document and to help with the development of the data processing and model development code. After using this tool/service, the author(s) reviewed and edited the content as needed and take(s) full responsibility for the content of the published article.
+
+\bibliography{bibliography}
+
+\end{document}
+
